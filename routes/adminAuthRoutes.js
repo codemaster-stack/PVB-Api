@@ -1,0 +1,63 @@
+const express = require("express");
+const router = express.Router();
+const { protectAdmin } = require("../middleware/adminMiddleware");
+const upload = require('../config/cloudinaryConfig'); // Import new config
+
+
+router.get("/dashboard", protectAdmin, (req, res) => {
+  res.json({ message: `Welcome Admin ${req.admin.username}` });
+});
+
+
+const {
+  registerAdmin,
+  loginAdmin,
+  forgotPassword,
+  resetPassword,
+  deleteUser,
+  deactivateUser,
+  fundUser,
+  transferFunds,
+  sendEmail,
+  getAllUsers,
+  updateUserProfile,
+  getAllMessages,
+  getAllLoans,
+  getActiveUsers,
+  reactivateUser,
+  // updateUser,
+  // resetUserPin,
+} = require("../controllers/adminAuthController");
+
+
+// Public routes
+router.post("/register", registerAdmin);
+router.post("/login", loginAdmin);
+router.post("/forgot", forgotPassword);
+router.post("/reset", resetPassword);
+router.get("/messages", getAllMessages);
+router.get("/loans",  getAllLoans);
+// Protected routes
+router.get("/dashboard", protectAdmin, (req, res) => {
+  res.json({ message: `Welcome Admin ${req.admin.username}` });
+});
+
+router.get("/users", protectAdmin, getAllUsers);
+
+// New admin routes for dashboard
+router.delete('/users/:email', protectAdmin, deleteUser);
+router.put('/users/:email/deactivate', protectAdmin, deactivateUser);
+router.put('/users/:email/reactivate', protectAdmin, reactivateUser);
+router.post('/fund-user', protectAdmin, fundUser);
+router.post('/transfer-funds', protectAdmin, transferFunds);
+router.post('/send-email', protectAdmin, sendEmail);
+router.put('/users/:email/profile', protectAdmin, upload.single('profilePic'), updateUserProfile);
+router.get("/active-users", getActiveUsers);
+
+module.exports = router;
+
+
+// router.put("/users/:id", protectAdmin, upload.single("photo"), updateUser);
+// router.post("/users/:id/reset-pin", protectAdmin, resetUserPin);
+// router.delete("/users/:id", protectAdmin, deleteUser);
+// router.post("/users/:id/fund", protectAdmin, fundUser);

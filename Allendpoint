@@ -1,0 +1,19 @@
+
+admin onbodingend point
+POST /api/admin/auth/register → Create new admin
+
+POST /api/admin/auth/login → Login
+
+POST /api/admin/auth/forgot → Send reset link
+
+POST /api/admin/auth/reset → Reset password
+
+
+user onbarding
+POST /api/users/register → body: { "fullname": "John Doe", "email": "john@mail.com", "phone": "08012345678", "password": "123456" }
+
+POST /api/users/login → body: { "email": "john@mail.com", "password": "123456" }
+
+POST /api/users/forgot → body: { "email": "john@mail.com" }
+
+POST /api/users/reset → body: { "resetToken": "<token from forgot>", "password": "newpass" }

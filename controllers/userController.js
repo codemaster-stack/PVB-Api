@@ -126,11 +126,31 @@ exports.forgotPassword = async (req, res, next) => {
     const resetUrl = `${process.env.FRONTEND_URL}/index.html?resetToken=${resetToken}`;
 
     // Send email
-    await sendEmail({
-      email: user.email,
-      subject: "PVNBank User Password Reset",
-      message: `You requested a password reset. Click here to reset your password:\n\n${resetUrl}\n\nThis link will expire in 25 minutes.`,
-    });
+    // forgotPassword controller snippet
+await sendEmail({
+  email: user.email,
+  subject: "🔐 Reset Your PVNBank Password",
+  message: `You requested a password reset. Visit: ${resetUrl}`, // fallback text
+  html: `
+    <div style="font-family: Arial, sans-serif; line-height:1.6; color:#333; max-width:600px; margin:auto; border:1px solid #eee; border-radius:8px; padding:20px;">
+      <div style="text-align:center;">
+        <img src="https://bank.pvbonline.online/public/logo.webp" alt="PVNBank Logo" style="width:120px; margin-bottom:20px;" />
+        <h2 style="color:#2c3e50;">Password Reset Request</h2>
+      </div>
+      <p>Hello ${user.name || "User"},</p>
+      <p>We received a request to reset your password for <b>PVNBank</b>.</p>
+      <p>Please click the button below to set a new password. This link will expire in <b>15 minutes</b>.</p>
+      <div style="text-align:center; margin:20px 0;">
+        <a href="${resetUrl}" style="background:#007BFF; color:#fff; text-decoration:none; padding:12px 20px; border-radius:5px; font-weight:bold;">Reset Password</a>
+      </div>
+      <p>If you didn’t request this, you can safely ignore this email.</p>
+      <br />
+      <hr />
+      <p style="font-size:12px; color:#777; text-align:center;">&copy; ${new Date().getFullYear()} PVNBank. All rights reserved.</p>
+    </div>
+  `,
+});
+
 
     res.json({ message: "Reset link sent to your email" });
   } catch (error) {

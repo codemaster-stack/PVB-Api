@@ -26,7 +26,7 @@ const app = express();
 app.use(express.json());
 app.use(
   cors({
-    origin: ["https://www.pvbonline.online", "https://pvbonline.online"],
+    origin: ["https://bank.pvbonline.online", "https://valley.pvbonline.online"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
@@ -52,7 +52,8 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: ["https://www.pvbonline.online", "https://pvbonline.online"],
+    origin: [ "https://bank.pvbonline.online","https://valley.pvbonline.online"],
+
     methods: ["GET", "POST"],
     credentials: true,
   },

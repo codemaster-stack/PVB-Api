@@ -295,35 +295,6 @@ exports.resetPin = async (req, res) => {
 };
 
 
-// exports.getTransactionHistory = async (req, res) => {
-//   try {
-//     if (!req.user || !req.user.id) {
-//       return res.status(401).json({ 
-//         message: "User not authenticated or user ID missing" 
-//       });
-//     }
-
-//     const { start, end } = req.query;
-
-//     // Build filter to find transactions for this user
-//     const filter = { userId: req.user.id };
-    
-//     if (start && end) {
-//       filter.createdAt = {
-//         $gte: new Date(start),
-//         $lte: new Date(new Date(end).setHours(23, 59, 59))
-//       };
-//     }
-
-//     const transactions = await Transaction.find(filter).sort({ createdAt: -1 });
-
-//     console.log('Found transactions:', transactions.length);
-//     res.json(transactions);
-//   } catch (err) {
-//     console.error("Error fetching history:", err);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// };
 
 exports.getTransactionHistory = async (req, res) => {
   try {

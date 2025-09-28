@@ -1,13 +1,14 @@
 // utils/sendEmail.js
 const transporter = require("../config/email");
 
-const sendEmail = async ({ email, subject, message }) => {
+const sendEmail = async ({ email, subject, message, html }) => {
   try {
     const mailOptions = {
-      from: `"PVNBank Support" <${process.env.ZOHO_EMAIL}>`,
+      from: `"Pauls Valley Bank Support" <${process.env.ZOHO_EMAIL}>`,
       to: email,
       subject,
-      text: message,
+      text: message, // fallback for clients that don’t render HTML
+      html: html || message, // prefer HTML, fallback to plain text
     };
 
     await transporter.sendMail(mailOptions);

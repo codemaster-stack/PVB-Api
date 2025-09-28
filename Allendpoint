@@ -17,3 +17,11 @@ POST /api/users/login → body: { "email": "john@mail.com", "password": "123456"
 POST /api/users/forgot → body: { "email": "john@mail.com" }
 
 POST /api/users/reset → body: { "resetToken": "<token from forgot>", "password": "newpass" }
+
+
+
+st8k6C7CrQI19Z2F
+
+npm install mongodb@4.1
+
+mongodb+srv://PaulsValley:st8k6C7CrQI19Z2F@paulsvalley.5brehmu.mongodb.net/?retryWrites=true&w=majority&appName=PaulsValley

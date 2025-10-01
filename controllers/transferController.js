@@ -220,28 +220,34 @@ exports.forgotPin = async (req, res) => {
     const resetUrl = `${process.env.FRONTEND_URL}/userpage.html?pinResetToken=${resetToken}`;
 
     // Send styled email
-    await sendEmail({
-      email: user.email,
-      subject: "PVNBank PIN Reset Request",
-      message: `You requested a PIN reset. Click here to reset your transaction PIN: ${resetUrl}. This link will expire in 15 minutes.`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <img src="https://bank.pvbonline.online/image/logo.webp" alt="Pauls Valley Bank Logo" style="width: 120px;" />
-          </div>
-          <h2 style="color: #2c3e50; text-align: center;">PIN Reset Request</h2>
-          <p>Hello ${user.name || "Customer"},</p>
-          <p>You requested a PIN reset. Please click the button below to reset your transaction PIN:</p>
-          <p style="text-align: center; margin: 30px 0;">
-            <a href="${resetUrl}" style="background: #2c3e50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Reset PIN</a>
-          </p>
-          <p><b>Note:</b> This link will expire in 15 minutes.</p>
-          <p>If you did not request this, please ignore this email.</p>
-          <hr style="margin: 20px 0;" />
-          <p style="font-size: 12px; color: #888; text-align: center;">Pauls Valley Bank • Secure Banking for You</p>
-        </div>
-      `
-    });
+   await sendEmail({
+  email: user.email,
+  subject: "🔑 PVNBank PIN Reset Request",
+  message: `You requested a PIN reset for your PVNBank account.\n\n
+Click the link below (or copy and paste it into your browser):\n\n${resetUrl}\n\n
+This link will expire in 15 minutes. If you did not request this, please ignore this email.`,
+  html: `
+    <div style="font-family: Arial, sans-serif; max-width:600px; margin:auto; border:1px solid #ddd; border-radius:8px; padding:20px;">
+      <div style="text-align:center; margin-bottom:20px;">
+        <img src="https://bank.pvbonline.online/image/logo.webp" alt="Pauls Valley Bank Logo" style="width:120px;" />
+      </div>
+      <h2 style="color:#2c3e50; text-align:center;">PIN Reset Request</h2>
+      <p>Hello ${user.fullname || "Customer"},</p>
+      <p>We received a request to reset your <b>transaction PIN</b>.</p>
+      <p>Please click the button below to reset your PIN. This link will expire in <b>15 minutes</b>.</p>
+      <div style="text-align:center; margin:30px 0;">
+        <a href="${resetUrl}" style="background:#2c3e50; color:#fff; padding:12px 24px; text-decoration:none; border-radius:5px; font-weight:bold;">Reset PIN</a>
+      </div>
+      <p>If you did not request this, you can safely ignore this email.</p>
+      <br />
+      <hr />
+      <p style="font-size:12px; color:#888; text-align:center;">
+        © ${new Date().getFullYear()} Pauls Valley Bank • Secure Banking for You
+      </p>
+    </div>
+  `,
+});
+
 
     res.status(200).json({
       success: true,

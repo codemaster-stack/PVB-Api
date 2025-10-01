@@ -21,6 +21,22 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
+    // Password length check (min 8, max 20 characters for example)
+    if (password.length < 6 || password.length > 8) {
+      return res.status(400).json({
+        message: "Password must be between 8 and 20 characters long",
+      });
+    }
+
+    // Optional: enforce stronger password (at least 1 number & 1 special char)
+    const strongPasswordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])/;
+    if (!strongPasswordRegex.test(password)) {
+      return res.status(400).json({
+        message:
+          "Password must contain at least 1 number and 1 special character",
+      });
+    }
+
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ message: "User already exists" });
@@ -29,12 +45,42 @@ exports.register = async (req, res) => {
     const user = await User.create({ name, email, phone, password });
 
     // Send welcome email
-    await sendEmail({
-      to: email,
-      subject: "Welcome to PV Bank",
-      text: `Hi ${name}, welcome onboard!`,
-      html: `<p>Hi <b>${name}</b>, welcome onboard!</p>`,
-    });
+   await sendEmail({
+  to: email,
+  subject: "Welcome to Pauls Valley Bank",
+  text: `Hi ${name}, welcome onboard!`, // fallback text for clients that don't support HTML
+  html: `
+  <div style="max-width: 600px; margin: auto; padding: 20px; font-family: Arial, sans-serif; border: 1px solid #eaeaea; border-radius: 10px;">
+    <div style="text-align: center; margin-bottom: 20px;">
+      <img src="https://bank.pvbonline.online/image/logo.webp" alt="Pauls Valley Bank" style="max-width: 150px; height: auto;" />
+    </div>
+    <h2 style="color: #004080; text-align: center;">Welcome to Pauls Valley Bank</h2>
+    <p style="font-size: 16px; color: #333;">Dear <b>${name}</b>,</p>
+    <p style="font-size: 15px; color: #555; line-height: 1.6;">
+      We’re excited to have you on board! 🎉 <br>
+      Your new account has been successfully created, and you now have access to all our digital banking services.
+    </p>
+    <p style="font-size: 15px; color: #555; line-height: 1.6;">
+      For your security, please remember to keep your login details private and never share your PIN or password with anyone.
+    </p>
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="https://bank.pvbonline.online/index.html" 
+         style="background-color: #004080; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+        Go to Your Dashboard
+      </a>
+    </div>
+    <p style="font-size: 14px; color: #777; text-align: center;">
+      If you didn’t register for this account, please ignore this email or contact our support immediately.
+    </p>
+    <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;" />
+    <p style="font-size: 12px; color: #aaa; text-align: center;">
+      © ${new Date().getFullYear()} Pauls Valley Bank. All rights reserved. <br/>
+      This is an automated email, please do not reply.
+    </p>
+  </div>
+  `,
+});
+
 
     res.status(201).json({
       _id: user._id,

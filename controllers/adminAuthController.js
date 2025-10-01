@@ -107,7 +107,7 @@ exports.forgotPassword = async (req, res, next) => {
     //   message: `You requested a password reset. Click here to reset your password:\n\n${resetUrl}\n\nThis link will expire in 25 minutes.`,
     // });
     await sendEmail({
-  email: user.email,
+  email: admin.email,
   subject: "🔐 Reset Your PVNBank Password",
   message: `You requested a password reset. Visit: ${resetUrl}`, // fallback text
   html: `
@@ -116,7 +116,7 @@ exports.forgotPassword = async (req, res, next) => {
         <img src="https://bank.pvbonline.online/image/logo.webp" alt="PVNBank Logo" style="width:120px; margin-bottom:20px;" />
         <h2 style="color:#2c3e50;">Password Reset Request</h2>
       </div>
-      <p>Hello ${user.name || "User"},</p>
+      <p>Hello ${admin.username || "admin"},</p>
       <p>We received a request to reset your password for <b>PVNBank</b>.</p>
       <p>Please click the button below to set a new password. This link will expire in <b>15 minutes</b>.</p>
       <div style="text-align:center; margin:20px 0;">

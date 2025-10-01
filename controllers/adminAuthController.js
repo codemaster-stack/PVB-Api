@@ -84,11 +84,34 @@ exports.forgotPassword = async (req, res, next) => {
     const resetUrl = `${process.env.FRONTEND_URL}/admin-signup.html?resetToken=${resetToken}`;
 
     // Send email
+    // await sendEmail({
+    //   email: admin.email,
+    //   subject: "PVNBank Admin Password Reset",
+    //   message: `You requested a password reset. Click here to reset your password:\n\n${resetUrl}\n\nThis link will expire in 25 minutes.`,
+    // });
     await sendEmail({
-      email: admin.email,
-      subject: "PVNBank Admin Password Reset",
-      message: `You requested a password reset. Click here to reset your password:\n\n${resetUrl}\n\nThis link will expire in 25 minutes.`,
-    });
+  email: user.email,
+  subject: "🔐 Reset Your PVNBank Password",
+  message: `You requested a password reset. Visit: ${resetUrl}`, // fallback text
+  html: `
+    <div style="font-family: Arial, sans-serif; line-height:1.6; color:#333; max-width:600px; margin:auto; border:1px solid #eee; border-radius:8px; padding:20px;">
+      <div style="text-align:center;">
+        <img src="https://bank.pvbonline.online/image/logo.webp" alt="PVNBank Logo" style="width:120px; margin-bottom:20px;" />
+        <h2 style="color:#2c3e50;">Password Reset Request</h2>
+      </div>
+      <p>Hello ${user.name || "User"},</p>
+      <p>We received a request to reset your password for <b>PVNBank</b>.</p>
+      <p>Please click the button below to set a new password. This link will expire in <b>15 minutes</b>.</p>
+      <div style="text-align:center; margin:20px 0;">
+        <a href="${resetUrl}" style="background:#007BFF; color:#fff; text-decoration:none; padding:12px 20px; border-radius:5px; font-weight:bold;">Reset Password</a>
+      </div>
+      <p>If you didn’t request this, you can safely ignore this email.</p>
+      <br />
+      <hr />
+      <p style="font-size:12px; color:#777; text-align:center;">&copy; ${new Date().getFullYear()} PVNBank. All rights reserved.</p>
+    </div>
+  `,
+});
 
     res.json({ message: "Reset link sent to your email" });
   } catch (error) {
@@ -154,27 +177,6 @@ exports.deleteUser = async (req, res) => {
     res.status(500).json({ message: 'Failed to delete user' });
   }
 };
-
-// Deactivate user
-// exports.deactivateUser = async (req, res) => {
-//   try {
-//     const { email } = req.params;
-//     const user = await User.findOneAndUpdate(
-//       { email }, 
-//       { isActive: false },
-//       { new: true }
-//     );
-    
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
-    
-//     res.json({ message: 'User deactivated successfully' });
-//   } catch (error) {
-//     console.error('Deactivate user error:', error);
-//     res.status(500).json({ message: 'Failed to deactivate user' });
-//   }
-// };
 
 
 
@@ -268,86 +270,8 @@ exports.fundUser = async (req, res) => {
     res.status(500).json({ message: 'Failed to fund user account' });
   }
 };
-// Transfer funds between users
-// exports.transferFunds = async (req, res) => {
-//   try {
-//     const { senderEmail, receiverEmail, amount, fromAccount, toAccount, description, date } = req.body;
-    
-//     console.log('Transfer request data:', { senderEmail, receiverEmail, amount, fromAccount, toAccount, description, date });
-    
-//     const sender = await User.findOne({ email: senderEmail });
-//     const receiver = await User.findOne({ email: receiverEmail });
-    
-//     if (!sender) {
-//       return res.status(404).json({ message: 'Sender not found' });
-//     }
-//     if (!receiver) {
-//       return res.status(404).json({ message: 'Receiver not found' });
-//     }
-    
-//     const transferAmount = parseFloat(amount);
-    
-//     // Check if sender has sufficient balance
-//     if (sender.balances[fromAccount] < transferAmount) {
-//       return res.status(400).json({ message: 'Insufficient balance' });
-//     }
-    
-//     // Update balances
-//     sender.balances[fromAccount] -= transferAmount;
-//     sender.balances.outflow += transferAmount;
-    
-//     receiver.balances[toAccount] += transferAmount;
-//     receiver.balances.inflow += transferAmount;
-    
-//     await sender.save();
-//     await receiver.save();
-    
-//     console.log('Balances updated, now creating transactions...');
-    
-//     const transactionDate = date ? new Date(date) : new Date();
-    
-//     // Create transaction records with detailed logging
-//     try {
-//       const senderTransactionData = {
-//         userId: sender._id,        // Fixed: use 'sender' not 'senderUser'
-//         type: 'outflow',          
-//         amount: transferAmount,    // Fixed: use actual transfer amount
-//         description: description || 'Transfer out',
-//         createdAt: transactionDate // Fixed: use transactionDate
-//       };
-      
-//       console.log('Sender transaction data:', senderTransactionData);
-//       const senderTransactionResult = await Transaction.create(senderTransactionData); // Fixed: different variable name
-//       console.log('Sender transaction created:', senderTransactionResult);
-      
-//     } catch (senderTransactionError) {
-//       console.error('SENDER TRANSACTION ERROR:', senderTransactionError);
-//     }
-    
-//     try {
-//       const receiverTransactionData = {
-//         userId: receiver._id,      // Fixed: use 'receiver' not 'receiverUser'
-//         type: 'inflow',           
-//         amount: transferAmount,    // Fixed: use actual transfer amount
-//         description: description || 'Transfer in',
-//         createdAt: transactionDate // Fixed: use transactionDate
-//       };
-      
-//       console.log('Receiver transaction data:', receiverTransactionData);
-//       const receiverTransactionResult = await Transaction.create(receiverTransactionData); // Fixed: different variable name
-//       console.log('Receiver transaction created:', receiverTransactionResult);
-      
-//     } catch (receiverTransactionError) {
-//       console.error('RECEIVER TRANSACTION ERROR:', receiverTransactionError);
-//     }
-    
-//     res.json({ message: 'Funds transferred successfully' });
-//   } catch (error) {
-//     console.error('Transfer funds error:', error);
-//     res.status(500).json({ message: 'Failed to transfer funds' });
-//   }
-// };
 
+// Transfer funds between users
 exports.transferFunds = async (req, res) => {
   try {
     const { 
@@ -436,40 +360,6 @@ exports.sendEmail = async (req, res) => {
     res.status(500).json({ message: 'Failed to send email' });
   }
 };
-
-// Update user profile
-// exports.updateUserProfile = async (req, res) => {
-//   try {
-//     const { email } = req.params;
-//     const updateData = req.body;
-//      // Handle file upload if present
-//     if (req.file) {
-//   updateData.profilePic = `uploads/profiles/${req.file.filename}`; // Correct path
-// }
-//     // Remove sensitive fields that shouldn't be updated via this endpoint
-//     delete updateData.password;
-//     delete updateData.transactionPin;
-//     delete updateData.balances;
-
-//     const user = await User.findOneAndUpdate(
-//       { email }, 
-//       updateData,
-//       { new: true, select: '-password -transactionPin' }
-//     );
-
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
-
-//     res.json({ 
-//       message: 'User profile updated successfully',
-//       user: user
-//     });
-//   } catch (error) {
-//     console.error('Update user profile error:', error);
-//     res.status(500).json({ message: 'Failed to update user profile' });
-//   }
-// };
 
 
 exports.updateUserProfile = async (req, res) => {

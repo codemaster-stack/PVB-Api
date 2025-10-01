@@ -39,7 +39,7 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
           
-         // Password length check (min 8, max 20 characters for example)
+         // Password length check (min 6, max 15 characters for example)
     if (password.length < 6 || password.length > 15) {
       return res.status(400).json({
         message: "Password must be between 6 and 15 characters long",
@@ -80,14 +80,14 @@ exports.register = async (req, res) => {
        await sendEmail({
       to: email,
       subject: "Welcome to Pauls Valley Bank",
-      text: `Hi ${name}, welcome onboard!`, // fallback text for clients that don't support HTML
+      text: `Hi ${fullname}, welcome onboard!`, // fallback text for clients that don't support HTML
       html: `
       <div style="max-width: 600px; margin: auto; padding: 20px; font-family: Arial, sans-serif; border: 1px solid #eaeaea; border-radius: 10px;">
         <div style="text-align: center; margin-bottom: 20px;">
           <img src="https://bank.pvbonline.online/image/logo.webp" alt="Pauls Valley Bank" style="max-width: 150px; height: auto;" />
         </div>
         <h2 style="color: #004080; text-align: center;">Welcome to Pauls Valley Bank</h2>
-        <p style="font-size: 16px; color: #333;">Dear <b>${name}</b>,</p>
+        <p style="font-size: 16px; color: #333;">Dear <b>${fullname}</b>,</p>
         <p style="font-size: 15px; color: #555; line-height: 1.6;">
           We’re excited to have you on board! 🎉 <br>
           Your new account has been successfully created, and you now have access to all our digital banking services.
@@ -161,7 +161,7 @@ exports.login = async (req, res) => {
 };
 
 // @desc Forgot password
-exports.forgotPassword = async (req, res, next) => {
+exports.forgotPassword = async (req, res, next) => { 
   try {
     const { email } = req.body;
 
@@ -182,37 +182,40 @@ exports.forgotPassword = async (req, res, next) => {
     const resetUrl = `${process.env.FRONTEND_URL}/index.html?resetToken=${resetToken}`;
 
     // Send email
-    // forgotPassword controller snippet
-await sendEmail({
-  email: user.email,
-  subject: "🔐 Reset Your PVNBank Password",
-  message: `You requested a password reset. Visit: ${resetUrl}`, // fallback text
-  html: `
-    <div style="font-family: Arial, sans-serif; line-height:1.6; color:#333; max-width:600px; margin:auto; border:1px solid #eee; border-radius:8px; padding:20px;">
-      <div style="text-align:center;">
-        <img src="https://bank.pvbonline.online/image/logo.webp" alt="PVNBank Logo" style="width:120px; margin-bottom:20px;" />
-        <h2 style="color:#2c3e50;">Password Reset Request</h2>
-      </div>
-      <p>Hello ${user.name || "User"},</p>
-      <p>We received a request to reset your password for <b>PVNBank</b>.</p>
-      <p>Please click the button below to set a new password. This link will expire in <b>15 minutes</b>.</p>
-      <div style="text-align:center; margin:20px 0;">
-        <a href="${resetUrl}" style="background:#007BFF; color:#fff; text-decoration:none; padding:12px 20px; border-radius:5px; font-weight:bold;">Reset Password</a>
-      </div>
-      <p>If you didn’t request this, you can safely ignore this email.</p>
-      <br />
-      <hr />
-      <p style="font-size:12px; color:#777; text-align:center;">&copy; ${new Date().getFullYear()} PVNBank. All rights reserved.</p>
-    </div>
-  `,
-});
-
+    await sendEmail({
+      email: user.email,
+      subject: "🔐 Reset Your PVNBank Password",
+      message: `You requested a password reset for your PVNBank account. 
+Click the link below (or copy and paste it into your browser): ${resetUrl} 
+This link will expire in 15 minutes. If you didn’t request this, please ignore this email.`, // fallback text
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height:1.6; color:#333; max-width:600px; margin:auto; border:1px solid #eee; border-radius:8px; padding:20px;">
+          <div style="text-align:center;">
+            <img src="https://bank.pvbonline.online/image/logo.webp" alt="PVNBank Logo" style="width:120px; margin-bottom:20px;" />
+            <h2 style="color:#2c3e50;">Password Reset Request</h2>
+          </div>
+          <p>Hello ${user.fullname || "User"},</p>
+          <p>We received a request to reset your password for <b>PVNBank</b>.</p>
+          <p>Please click the button below to set a new password. This link will expire in <b>15 minutes</b>.</p>
+          <div style="text-align:center; margin:20px 0;">
+            <a href="${resetUrl}" style="background:#007BFF; color:#fff; text-decoration:none; padding:12px 20px; border-radius:5px; font-weight:bold;">Reset Password</a>
+          </div>
+          <p>If you didn’t request this, you can safely ignore this email.</p>
+          <br />
+          <hr />
+          <p style="font-size:12px; color:#777; text-align:center;">
+            &copy; ${new Date().getFullYear()} PVNBank. All rights reserved.
+          </p>
+        </div>
+      `,
+    });
 
     res.json({ message: "Reset link sent to your email" });
   } catch (error) {
     next(error);
   }
 };
+
 
 // @desc    Reset password
 exports.resetPassword = async (req, res, next) => {

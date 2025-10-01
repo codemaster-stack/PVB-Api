@@ -200,6 +200,7 @@ exports.createPin = async (req, res) => {
 };
 
 // Request PIN reset
+// controllers/authController.js (or wherever you have forgotPin)
 exports.forgotPin = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -210,7 +211,7 @@ exports.forgotPin = async (req, res) => {
     // Create a plain reset token
     const resetToken = crypto.randomBytes(20).toString("hex");
 
-    // Hash token before saving to DB (same pattern as password reset)
+    // Hash token before saving to DB
     user.pinResetToken = crypto.createHash("sha256").update(resetToken).digest("hex");
     user.pinResetTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 minutes
     await user.save();
@@ -218,11 +219,28 @@ exports.forgotPin = async (req, res) => {
     // Create reset URL (frontend link)
     const resetUrl = `${process.env.FRONTEND_URL}/userpage.html?pinResetToken=${resetToken}`;
 
-    // Send email (assuming you have the same sendEmail function)
+    // Send styled email
     await sendEmail({
       email: user.email,
       subject: "PVNBank PIN Reset Request",
-      message: `You requested a PIN reset. Click here to reset your transaction PIN:\n\n${resetUrl}\n\nThis link will expire in 15 minutes.`,
+      message: `You requested a PIN reset. Click here to reset your transaction PIN: ${resetUrl}. This link will expire in 15 minutes.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <img src="https://bank.pvbonline.online/image/logo.webp" alt="Pauls Valley Bank Logo" style="width: 120px;" />
+          </div>
+          <h2 style="color: #2c3e50; text-align: center;">PIN Reset Request</h2>
+          <p>Hello ${user.name || "Customer"},</p>
+          <p>You requested a PIN reset. Please click the button below to reset your transaction PIN:</p>
+          <p style="text-align: center; margin: 30px 0;">
+            <a href="${resetUrl}" style="background: #2c3e50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Reset PIN</a>
+          </p>
+          <p><b>Note:</b> This link will expire in 15 minutes.</p>
+          <p>If you did not request this, please ignore this email.</p>
+          <hr style="margin: 20px 0;" />
+          <p style="font-size: 12px; color: #888; text-align: center;">Pauls Valley Bank • Secure Banking for You</p>
+        </div>
+      `
     });
 
     res.status(200).json({
@@ -235,6 +253,7 @@ exports.forgotPin = async (req, res) => {
     res.status(500).json({ message: "Failed to process PIN reset request" });
   }
 };
+
 
 
 

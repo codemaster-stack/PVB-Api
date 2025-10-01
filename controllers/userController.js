@@ -134,7 +134,7 @@ await sendEmail({
   html: `
     <div style="font-family: Arial, sans-serif; line-height:1.6; color:#333; max-width:600px; margin:auto; border:1px solid #eee; border-radius:8px; padding:20px;">
       <div style="text-align:center;">
-        <img src="https://bank.pvbonline.online/public/logo.webp" alt="PVNBank Logo" style="width:120px; margin-bottom:20px;" />
+        <img src="https://bank.pvbonline.online/image/logo.webp" alt="PVNBank Logo" style="width:120px; margin-bottom:20px;" />
         <h2 style="color:#2c3e50;">Password Reset Request</h2>
       </div>
       <p>Hello ${user.name || "User"},</p>

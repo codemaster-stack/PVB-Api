@@ -23,6 +23,23 @@ exports.registerAdmin = async (req, res, next) => {
       return res.status(400).json({ message: "Please fill in all fields" });
     }
 
+          // Password length check (min 8, max 20 characters for example)
+    if (password.length < 6 || password.length > 15) {
+      return res.status(400).json({
+        message: "Password must be between 6 and 15 characters long",
+      });
+    }
+
+    // Optional: enforce stronger password (at least 1 number & 1 special char)
+    const strongPasswordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])/;
+    if (!strongPasswordRegex.test(password)) {
+      return res.status(400).json({
+        message:
+          "Password must contain at least 1 number and 1 special character",
+      });
+    }
+
+
     const adminExists = await Admin.findOne({ email });
     if (adminExists) {
       return res.status(400).json({ message: "Admin already exists" });

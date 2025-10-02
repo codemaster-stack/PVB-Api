@@ -16,16 +16,17 @@
 
 
 
+
 // config/email.js
 const nodemailer = require("nodemailer");
 
 const emailTransporter = nodemailer.createTransport({
-  host: process.env.ZOHO_HOST || "smtp.zoho.com",
-  port: process.env.ZOHO_PORT || 587,
-  secure: process.env.ZOHO_PORT == 465,
+  host: process.env.EMAIL_HOST || "smtp.gmail.com",
+  port: process.env.EMAIL_PORT || 587,
+  secure: false, // Use TLS
   auth: {
-    user: process.env.ZOHO_EMAIL,
-    pass: process.env.ZOHO_PASS,
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
 });
 

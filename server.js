@@ -1,7 +1,7 @@
 // server.js
 require("dotenv").config();
 const express = require("express");
-const dotenv = require("dotenv");
+// const dotenv = require("dotenv");
 const cors = require("cors");
 const connectDB = require("./config/db"); 
 const adminAuthRoutes = require("./routes/adminAuthRoutes");
@@ -17,7 +17,7 @@ const path = require("path");
 const http = require("http");
 const { Server } = require("socket.io");
 
-dotenv.config();
+// dotenv.config();
 connectDB();
 
 const app = express();

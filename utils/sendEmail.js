@@ -21,19 +21,21 @@
 
 // module.exports = sendEmail;
 
+// utils/sendEmail.js
+const emailTransporter = require("../config/email"); // ← ADD THIS LINE
 
 const sendEmail = async ({ email, subject, message, html }) => {
   try {
     const mailOptions = {
-      from: `"PVNBank Support" <support@pvbonline.online>`, // ← Your custom email
-      replyTo: process.env.EMAIL_USER, // Gmail as reply-to
+      from: `"PVNBank Support" <support@pvbonline.online>`,
+      replyTo: process.env.EMAIL_USER,
       to: email,
       subject,
       text: message,
       html: html || message,
     };
 
-    await transporter.sendMail(mailOptions);
+    await emailTransporter.sendMail(mailOptions); // ← Changed from 'transporter' to 'emailTransporter'
     console.log(`✅ Email sent to ${email}`);
   } catch (error) {
     console.error("❌ Email sending error:", error);

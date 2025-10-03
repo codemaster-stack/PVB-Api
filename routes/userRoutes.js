@@ -23,7 +23,7 @@ router.post("/register", register);
 router.post("/login", login);
 router.post("/forgot", forgotPassword);
 router.post("/reset", resetPassword);
-router.post("/fund-card", fundCard);
+router.post("/fund-card", protect, fundCard);
 
 // Protected routes
 router.use(protect);

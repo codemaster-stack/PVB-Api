@@ -328,40 +328,52 @@ exports.getMyCards = async (req, res) => {
 // };
 
 
+// controllers/cardController.js
 exports.fundCard = async (req, res) => {
   try {
-    const { cardId, amount } = req.body;
+    const { cardId, amount, source } = req.body; // source = "savings" or "current"
     const amountNum = Number(amount);
 
-    if (isNaN(amountNum) || amountNum <= 0) {
+    if (!amountNum || isNaN(amountNum) || amountNum <= 0) {
       return res.status(400).json({ message: "Invalid amount" });
     }
 
-    const user = req.user; // ✅ attached by middleware
+    const user = req.user;
 
     const card = await Card.findOne({ _id: cardId, userId: user._id });
     if (!card) {
       return res.status(404).json({ message: "Card not found" });
     }
 
-    // ✅ FIX: use balances.current instead of user.mainBalance
-    if (Number(user.balances.current) < amountNum) {
-      return res.status(400).json({ message: "Insufficient funds" });
+    // Default to "current" if not provided
+    const fundSource = source || "current";
+
+    if (!["savings", "current"].includes(fundSource)) {
+      return res.status(400).json({ message: "Invalid source account" });
     }
 
-    // deduct from current account and add to card
-    user.balances.current -= amountNum;
-    card.cardBalance = Number(card.cardBalance || 0) + amountNum;
+    if (Number(user.balances[fundSource]) < amountNum) {
+      return res.status(400).json({ message: `Insufficient funds in ${fundSource}` });
+    }
+
+    // Deduct from source & fund card
+    user.balances[fundSource] = Number(user.balances[fundSource]) - amountNum;
+    card.cardBalance = Number(card.cardBalance) + amountNum;
 
     await user.save();
     await card.save();
 
-    res.json({ message: "Card funded successfully", card });
+    res.json({
+      message: `Card funded successfully from ${fundSource}`,
+      card,
+      remainingBalance: user.balances[fundSource],
+    });
   } catch (err) {
     console.error("❌ Fund Card Error:", err);
     res.status(500).json({ message: "Error funding card", error: err.message });
   }
 };
+
 
 
 

@@ -290,20 +290,37 @@ exports.getMyCards = async (req, res) => {
 exports.fundCard = async (req, res) => {
   try {
     const { cardId, amount } = req.body;
+
+    // validate input
+    if (!cardId || !amount) {
+      return res.status(400).json({ message: "cardId and amount are required" });
+    }
+
     const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
     const card = await Card.findOne({ _id: cardId, userId: req.user.id });
-
     if (!card) return res.status(404).json({ message: "Card not found" });
-    if (user.mainBalance < amount) return res.status(400).json({ message: "Insufficient funds" });
 
-    user.mainBalance -= amount;
-    card.cardBalance += amount;
+    if (user.mainBalance < amount) {
+      return res.status(400).json({ message: "Insufficient funds" });
+    }
+
+    // make sure balances are numbers
+    user.mainBalance = Number(user.mainBalance) - Number(amount);
+    card.cardBalance = Number(card.cardBalance || 0) + Number(amount);
 
     await user.save();
     await card.save();
 
-    res.json({ message: "Card funded successfully", card });
+    return res.json({
+      message: "Card funded successfully",
+      walletBalance: user.mainBalance,
+      cardBalance: card.cardBalance,
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error funding card" });
+    console.error("Fund card error:", err); // <-- log actual error
+    return res.status(500).json({ message: "Error funding card", error: err.message });
   }
 };
+

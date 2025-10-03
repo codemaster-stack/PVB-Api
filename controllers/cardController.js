@@ -280,14 +280,44 @@ exports.getAllCards = async (req, res) => {
 
 
 // GET all cards of logged-in user
+// exports.getMyCards = async (req, res) => {
+//   try {
+//     const cards = await Card.find({ userId: req.user.id });
+//     res.json(cards);
+//   } catch (err) {
+//     res.status(500).json({ message: "Error fetching cards" });
+//   }
+// };
+
+// GET /api/users/my-cards
 exports.getMyCards = async (req, res) => {
   try {
-    const cards = await Card.find({ userId: req.user.id });
-    res.json(cards);
+    const cards = await Card.find({ userId: req.user.id }).select('-transactionPin');
+
+    // Map cards to include message for deactivated ones
+    const responseCards = cards.map(card => {
+      return {
+        _id: card._id,
+        cardHolderName: card.cardHolderName,
+        cardType: card.cardType,
+        cardNumber: card.cardNumber,
+        cvv: card.cvv,
+        expiryDate: card.expiryDate,
+        cardBalance: card.cardBalance ?? 0,
+        isActive: card.isActive,
+        statusMessage: card.isActive
+          ? null
+          : 'Your card has been deactivated, please contact customer care.'
+      };
+    });
+
+    res.json(responseCards);
   } catch (err) {
+    console.error('Error fetching cards:', err);
     res.status(500).json({ message: "Error fetching cards" });
   }
 };
+
 
 // Fund a card from main balance
 // exports.fundCard = async (req, res) => {

@@ -8,14 +8,6 @@ exports.createCardApplication = async (req, res) => {
     const { cardHolderName, cardType, cardNumber, cvv, expiryDate, transactionPin } = req.body;
     const userId = req.user._id;
 
-    // Check if user already has a card
-    // const existingCard = await Card.findOne({ userId });
-    // if (existingCard) {
-    //   return res.status(400).json({ 
-    //     message: 'You already have a card application. Only one card per user is allowed.' 
-    //   });
-    // }
-
     // Check for active cards only (exclude rejected)
       const existingActiveCard = await Card.findOne({ 
        userId: userId,
@@ -280,5 +272,38 @@ exports.getAllCards = async (req, res) => {
   } catch (error) {
     console.error('Get all cards error:', error);
     res.status(500).json({ message: 'Failed to retrieve cards' });
+  }
+};
+
+
+// GET all cards of logged-in user
+exports.getMyCards = async (req, res) => {
+  try {
+    const cards = await Card.find({ userId: req.user.id });
+    res.json(cards);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching cards" });
+  }
+};
+
+// Fund a card from main balance
+exports.fundCard = async (req, res) => {
+  try {
+    const { cardId, amount } = req.body;
+    const user = await User.findById(req.user.id);
+    const card = await Card.findOne({ _id: cardId, userId: req.user.id });
+
+    if (!card) return res.status(404).json({ message: "Card not found" });
+    if (user.mainBalance < amount) return res.status(400).json({ message: "Insufficient funds" });
+
+    user.mainBalance -= amount;
+    card.cardBalance += amount;
+
+    await user.save();
+    await card.save();
+
+    res.json({ message: "Card funded successfully", card });
+  } catch (err) {
+    res.status(500).json({ message: "Error funding card" });
   }
 };

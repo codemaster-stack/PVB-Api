@@ -2,6 +2,7 @@ const express = require("express");
 const upload = require('../config/cloudinaryConfig'); // Import new config
 const router = express.Router();
 const { protect } = require("../middleware/auth");
+const {getMyCards, fundCard} = require("../controllers/cardController")
 
 const {
   register,
@@ -22,6 +23,7 @@ router.post("/register", register);
 router.post("/login", login);
 router.post("/forgot", forgotPassword);
 router.post("/reset", resetPassword);
+router.post("/fund-card", fundCard);
 
 // Protected routes
 router.use(protect);
@@ -29,6 +31,7 @@ router.use(protect);
 // router.post("/create-card", createCreditCard);
 router.get("/dashboard", getDashboard);
 router.get("/transactions", protect, getTransactions);
+router.get("/my-cards", protect, getMyCards)
 
 
 router.get('/check-pin-status', protect, checkPinStatus);

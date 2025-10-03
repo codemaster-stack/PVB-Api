@@ -1,4 +1,3 @@
-// models/Card.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -34,6 +33,10 @@ const cardSchema = new mongoose.Schema({
   transactionPin: {
     type: String,
     required: true
+  },
+  cardBalance: {  // ✅ ADD THIS
+    type: Number,
+    default: 0
   },
   status: {
     type: String,

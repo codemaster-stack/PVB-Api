@@ -291,36 +291,45 @@ exports.fundCard = async (req, res) => {
   try {
     const { cardId, amount } = req.body;
 
-    // validate input
-    if (!cardId || !amount) {
-      return res.status(400).json({ message: "cardId and amount are required" });
+    // Ensure amount is a number
+    const amountNum = Number(amount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      return res.status(400).json({ message: "Invalid amount" });
     }
 
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
     const card = await Card.findOne({ _id: cardId, userId: req.user.id });
-    if (!card) return res.status(404).json({ message: "Card not found" });
 
-    if (user.mainBalance < amount) {
+    if (!card) {
+      return res.status(404).json({ message: "Card not found" });
+    }
+
+    if (user.mainBalance < amountNum) {
       return res.status(400).json({ message: "Insufficient funds" });
     }
 
-    // make sure balances are numbers
-    user.mainBalance = Number(user.mainBalance) - Number(amount);
-    card.cardBalance = Number(card.cardBalance || 0) + Number(amount);
+    // Deduct from main account and add to card
+    user.mainBalance -= amountNum;
+    card.cardBalance = (card.cardBalance || 0) + amountNum;
 
     await user.save();
     await card.save();
 
-    return res.json({
+    res.json({
       message: "Card funded successfully",
-      walletBalance: user.mainBalance,
-      cardBalance: card.cardBalance,
+      card: {
+        _id: card._id,
+        cardType: card.cardType,
+        cardNumber: card.cardNumber,
+        expiryDate: card.expiryDate,
+        cardHolderName: card.cardHolderName,
+        cardBalance: card.cardBalance
+      }
     });
   } catch (err) {
-    console.error("Fund card error:", err); // <-- log actual error
-    return res.status(500).json({ message: "Error funding card", error: err.message });
+    console.error("Fund Card Error:", err);
+    res.status(500).json({ message: "Error funding card" });
   }
 };
+
 

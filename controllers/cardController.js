@@ -290,16 +290,15 @@ exports.getMyCards = async (req, res) => {
 exports.fundCard = async (req, res) => {
   try {
     const { cardId, amount } = req.body;
-
-    // Ensure amount is a number
     const amountNum = Number(amount);
+
     if (isNaN(amountNum) || amountNum <= 0) {
       return res.status(400).json({ message: "Invalid amount" });
     }
 
-    const user = await User.findById(req.user.id);
-    const card = await Card.findOne({ _id: cardId, userId: req.user.id });
+    const user = req.user; // ✅ already attached by middleware
 
+    const card = await Card.findOne({ _id: cardId, userId: user._id });
     if (!card) {
       return res.status(404).json({ message: "Card not found" });
     }
@@ -308,28 +307,22 @@ exports.fundCard = async (req, res) => {
       return res.status(400).json({ message: "Insufficient funds" });
     }
 
-    // Deduct from main account and add to card
+    if (typeof card.cardBalance !== "number") {
+      card.cardBalance = 0;
+    }
+
     user.mainBalance -= amountNum;
-    card.cardBalance = (card.cardBalance || 0) + amountNum;
+    card.cardBalance += amountNum;
 
     await user.save();
     await card.save();
 
-    res.json({
-      message: "Card funded successfully",
-      card: {
-        _id: card._id,
-        cardType: card.cardType,
-        cardNumber: card.cardNumber,
-        expiryDate: card.expiryDate,
-        cardHolderName: card.cardHolderName,
-        cardBalance: card.cardBalance
-      }
-    });
+    res.json({ message: "Card funded successfully", card });
   } catch (err) {
-    console.error("Fund Card Error:", err);
-    res.status(500).json({ message: "Error funding card" });
+    console.error("❌ Fund Card Error:", err);
+    res.status(500).json({ message: "Error funding card", error: err.message });
   }
 };
+
 
 

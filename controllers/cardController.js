@@ -1,6 +1,9 @@
 // controllers/cardController.js
 const Card = require('../models/Card');
 const User = require('../models/User');
+const Transaction = require('../models/Transaction');
+const Account = require('../models/Account');
+
 
 // User creates card application
 exports.createCardApplication = async (req, res) => {

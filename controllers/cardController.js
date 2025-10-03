@@ -290,6 +290,44 @@ exports.getMyCards = async (req, res) => {
 };
 
 // Fund a card from main balance
+// exports.fundCard = async (req, res) => {
+//   try {
+//     const { cardId, amount } = req.body;
+//     const amountNum = Number(amount);
+
+//     if (isNaN(amountNum) || amountNum <= 0) {
+//       return res.status(400).json({ message: "Invalid amount" });
+//     }
+
+//     const user = req.user; // ✅ already attached by middleware
+
+//     const card = await Card.findOne({ _id: cardId, userId: user._id });
+//     if (!card) {
+//       return res.status(404).json({ message: "Card not found" });
+//     }
+
+//     if (user.mainBalance < amountNum) {
+//       return res.status(400).json({ message: "Insufficient funds" });
+//     }
+
+//     if (typeof card.cardBalance !== "number") {
+//       card.cardBalance = 0;
+//     }
+
+//     user.mainBalance -= amountNum;
+//     card.cardBalance += amountNum;
+
+//     await user.save();
+//     await card.save();
+
+//     res.json({ message: "Card funded successfully", card });
+//   } catch (err) {
+//     console.error("❌ Fund Card Error:", err);
+//     res.status(500).json({ message: "Error funding card", error: err.message });
+//   }
+// };
+
+
 exports.fundCard = async (req, res) => {
   try {
     const { cardId, amount } = req.body;
@@ -299,23 +337,21 @@ exports.fundCard = async (req, res) => {
       return res.status(400).json({ message: "Invalid amount" });
     }
 
-    const user = req.user; // ✅ already attached by middleware
+    const user = req.user; // ✅ attached by middleware
 
     const card = await Card.findOne({ _id: cardId, userId: user._id });
     if (!card) {
       return res.status(404).json({ message: "Card not found" });
     }
 
-    if (user.mainBalance < amountNum) {
+    // ✅ FIX: use balances.current instead of user.mainBalance
+    if (Number(user.balances.current) < amountNum) {
       return res.status(400).json({ message: "Insufficient funds" });
     }
 
-    if (typeof card.cardBalance !== "number") {
-      card.cardBalance = 0;
-    }
-
-    user.mainBalance -= amountNum;
-    card.cardBalance += amountNum;
+    // deduct from current account and add to card
+    user.balances.current -= amountNum;
+    card.cardBalance = Number(card.cardBalance || 0) + amountNum;
 
     await user.save();
     await card.save();

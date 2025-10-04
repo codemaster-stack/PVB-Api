@@ -76,7 +76,13 @@ io.on("connection", (socket) => {
 
   // Visitor sends message → broadcast to admins
   socket.on("visitorMessage", (data) => {
-    io.to("admins").emit("chatMessage", { sender: "visitor", ...data });
+    console.log("📨 Visitor message received:", data);
+    // Send to admins with proper format
+    io.to("admins").emit("chatMessage", { 
+      sender: "visitor", 
+      visitorId: data.visitorId,
+      text: data.text 
+    });
   });
 
   // Admin sends message → send only to target visitor

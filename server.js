@@ -1,9 +1,9 @@
 // server.js
 require("dotenv").config();
 const express = require("express");
-// const dotenv = require("dotenv");
 const cors = require("cors");
-const connectDB = require("./config/db"); 
+const connectDB = require("./config/db");
+
 const adminAuthRoutes = require("./routes/adminAuthRoutes");
 const errorHandler = require("./middleware/errorHandler");
 const userRoutes = require("./routes/userRoutes");
@@ -17,7 +17,6 @@ const path = require("path");
 const http = require("http");
 const { Server } = require("socket.io");
 
-// dotenv.config();
 connectDB();
 
 const app = express();
@@ -52,8 +51,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: [ "https://bank.pvbonline.online","https://valley.pvbonline.online"],
-
+    origin: ["https://bank.pvbonline.online", "https://valley.pvbonline.online"],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -87,6 +85,27 @@ io.on("connection", (socket) => {
     if (visitorSocket) {
       io.to(visitorSocket).emit("chatMessage", { sender: "admin", text });
     }
+  });
+
+  // ✨ NEW: Admin typing notification
+  socket.on("adminTyping", (data) => {
+    const visitorSocket = visitors[data.visitorId];
+    if (visitorSocket) {
+      io.to(visitorSocket).emit("adminTyping", { 
+        typing: data.typing 
+      });
+      console.log(`👨‍💼 Admin typing to ${data.visitorId}: ${data.typing}`);
+    }
+  });
+
+  // ✨ NEW: Visitor typing notification
+  socket.on("visitorTyping", (data) => {
+    // Send typing status to all admins
+    io.to("admins").emit("visitorTyping", { 
+      visitorId: socket.id,
+      typing: data.typing 
+    });
+    console.log(`👤 Visitor ${socket.id} typing: ${data.typing}`);
   });
 
   socket.on("disconnect", () => {

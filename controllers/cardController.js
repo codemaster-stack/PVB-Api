@@ -176,7 +176,7 @@ exports.adminCreateCard = async (req, res) => {
       status: 'approved',
       isActive: true,
       createdBy: 'admin',
-      approvedBy: req.user._id,
+      approvedBy: req.admin._id,
       approvedAt: new Date()
     });
 

@@ -1,16 +1,16 @@
 // routes/adminCardRoutes.js
 const express = require('express');
 const router = express.Router();
-const cardController = require('../controllers/cardController');
+const {adminCreateCard, getPendingCards, getAllCards, approveCard, rejectCard, deactivateCard, reactivateCard} = require('../controllers/cardController');
 const { protectAdmin } = require('../middleware/adminMiddleware'); // Assuming you have admin auth middleware
 
 // Admin routes
-router.post('/create-card', protectAdmin, cardController.adminCreateCard);
-router.get('/pending-cards', protectAdmin, cardController.getPendingCards);
-router.get('/all-cards', protectAdmin, cardController.getAllCards);
-router.put('/approve-card/:cardId', protectAdmin, cardController.approveCard);
-router.put('/reject-card/:cardId', protectAdmin, cardController.rejectCard);
-router.put('/deactivate-card/:cardId', protectAdmin, cardController.deactivateCard);
-router.put('/reactivate-card/:cardId',protectAdmin, cardController.reactivateCard);
+router.post('/create-card', protectAdmin, adminCreateCard);
+router.get('/pending-cards', protectAdmin, getPendingCards);
+router.get('/all-cards', protectAdmin, getAllCards);
+router.put('/approve-card/:cardId', protectAdmin, approveCard);
+router.put('/reject-card/:cardId', protectAdmin, rejectCard);
+router.put('/deactivate-card/:cardId', protectAdmin, deactivateCard);
+router.put('/reactivate-card/:cardId',protectAdmin, reactivateCard);
 
 module.exports = router;

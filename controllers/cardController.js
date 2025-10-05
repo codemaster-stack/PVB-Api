@@ -77,60 +77,61 @@ exports.getUserCard = async (req, res) => {
   }
 };
 
-// Admin creates card directly for user
-// exports.adminCreateCard = async (req, res) => {
-//   try {
-//     const { userEmail, cardHolderName, cardType, cardNumber, cvv, expiryDate, transactionPin } = req.body;
+// Admin fund card directly for user
+exports.adminFundCard = async (req, res) => {
+  try {
+    const { userEmail, amount } = req.body;
 
-//     // Find user by email
-//     const user = await User.findOne({ email: userEmail });
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
+    console.log('💰 Fund card request:', { userEmail, amount });
 
-//     // Check if user already has a card
-//     const existingCard = await Card.findOne({ userId: user._id });
-//     if (existingCard) {
-//       return res.status(400).json({ 
-//         message: 'User already has a card. Only one card per user is allowed.' 
-//       });
-//     }
+    // Validate amount
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: 'Amount must be greater than 0' });
+    }
 
-//     // Validate PIN
-//     if (!transactionPin || transactionPin.length !== 4) {
-//       return res.status(400).json({ message: 'Transaction PIN must be 4 digits' });
-//     }
+    // Find user
+    const user = await User.findOne({ email: userEmail });
+    console.log('👤 User found:', user ? 'YES' : 'NO');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
-//     const card = new Card({
-//       userId: user._id,
-//       cardHolderName,
-//       cardType,
-//       cardNumber: cardNumber.replace(/\s/g, ''),
-//       cvv,
-//       expiryDate,
-//       transactionPin,
-//       status: 'approved', // Admin-created cards are auto-approved
-//       isActive: true,
-//       createdBy: 'admin',
-//       approvedBy: req.user._id, // Admin who created it
-//       approvedAt: new Date()
-//     });
+    // Find user's card
+    const card = await Card.findOne({ userId: user._id });
+    console.log('💳 Card found:', card ? 'YES' : 'NO');
+    
+    if (!card) {
+      return res.status(404).json({ message: 'User does not have a card' });
+    }
 
-//     await card.save();
+    // Check if card is active
+    if (!card.isActive || card.status !== 'approved') {
+      return res.status(400).json({ 
+        message: `Card is not active (Status: ${card.status}, Active: ${card.isActive})` 
+      });
+    }
 
-//     res.status(201).json({
-//       message: 'Card created successfully for user',
-//       cardId: card._id
-//     });
+    // Update balance
+    const previousBalance = card.cardBalance;
+    card.cardBalance += parseFloat(amount);
+    await card.save();
 
-//   } catch (error) {
-//     console.error('Admin create card error:', error);
-//     if (error.code === 11000) {
-//       return res.status(400).json({ message: 'Card number already exists' });
-//     }
-//     res.status(500).json({ message: 'Failed to create card' });
-//   }
-// };
+    console.log('✅ Card funded successfully');
+    console.log(`Previous: $${previousBalance} → New: $${card.cardBalance}`);
+
+    res.status(200).json({
+      message: 'Card funded successfully',
+      previousBalance: previousBalance,
+      newBalance: card.cardBalance,
+      amountAdded: parseFloat(amount)
+    });
+
+  } catch (error) {
+    console.error('❌ Admin fund card error:', error);
+    res.status(500).json({ message: 'Failed to fund card', error: error.message });
+  }
+};
 exports.adminCreateCard = async (req, res) => {
   try {
     const { userEmail, cardHolderName, cardType, cardNumber, cvv, expiryDate, transactionPin } = req.body;

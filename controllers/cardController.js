@@ -394,7 +394,7 @@ exports.fundCard = async (req, res) => {
     // Default to "current" if not provided
     const fundSource = source || "current";
 
-    if (!["savings", "current"].includes(fundSource)) {
+    if (!["savings", "current", "loan"].includes(fundSource)) {
       return res.status(400).json({ message: "Invalid source account" });
     }
 

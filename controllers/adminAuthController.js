@@ -17,7 +17,7 @@ const generateToken = (id) => {
 // @desc    Register new admin
 exports.registerAdmin = async (req, res, next) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, secretCode } = req.body;
 
     if (!username || !email || !password) {
       return res.status(400).json({ message: "Please fill in all fields" });
@@ -45,7 +45,14 @@ exports.registerAdmin = async (req, res, next) => {
       return res.status(400).json({ message: "Admin already exists" });
     }
 
-    const admin = await Admin.create({ username, email, password });
+    // const admin = await Admin.create({ username, email, password });
+    // Check if secret code matches for superadmin creation
+    let role = "admin";  // default role
+    if (secretCode === "SUPER_ADMIN_SECRET_2660") {  // Change this to your own secret code
+    role = "superadmin";
+    }
+
+     const admin = await Admin.create({ username, email, password, role });  // ADD role HERE
     res.status(201).json({
       _id: admin._id,
       username: admin.username,
@@ -63,14 +70,16 @@ exports.loginAdmin = async (req, res, next) => {
     const { email, password } = req.body;
 
     const admin = await Admin.findOne({ email });
-    if (admin && (await admin.matchPassword(password))) {
-      res.json({
-        _id: admin._id,
-        username: admin.username,
-        email: admin.email,
-        token: generateToken(admin._id),
-      });
-    } else {
+   
+     if (admin && (await admin.matchPassword(password))) {
+  res.json({
+    _id: admin._id,
+    username: admin.username,
+    email: admin.email,
+    role: admin.role,  // ADD THIS LINE
+    token: generateToken(admin._id),
+  });
+} else {
       res.status(401).json({ message: "Invalid email or password" });
     }
   } catch (error) {
@@ -179,57 +188,181 @@ exports.getAllUsers = async (req, res) => {
 };
 
 // Delete user
+// exports.deleteUser = async (req, res) => {
+//   try {
+//     const { email } = req.params;
+//     const user = await User.findOneAndDelete({ email });
+    
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+    
+//     res.json({ message: 'User deleted successfully' });
+//   } catch (error) {
+//     console.error('Delete user error:', error);
+//     res.status(500).json({ message: 'Failed to delete user' });
+//   }
+// };
 exports.deleteUser = async (req, res) => {
   try {
     const { email } = req.params;
-    const user = await User.findOneAndDelete({ email });
+    const user = await User.findOne({ email });
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    res.json({ message: 'User deleted successfully' });
+    // Soft delete - move to recycle bin instead of permanent delete
+    user.isDeleted = true;
+    user.deletedAt = new Date();
+    user.deletedBy = req.admin.role; // 'admin' or 'superadmin'
+    await user.save();
+    
+    res.json({ 
+      message: 'User moved to recycle bin successfully',
+      deletedBy: req.admin.role 
+    });
   } catch (error) {
     console.error('Delete user error:', error);
     res.status(500).json({ message: 'Failed to delete user' });
   }
 };
 
+// Restore user from recycle bin (Super Admin only)
+exports.restoreUser = async (req, res) => {
+  try {
+    const { email } = req.params;
+    const user = await User.findOne({ email, isDeleted: true });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found in recycle bin' });
+    }
+    
+    user.isDeleted = false;
+    user.deletedAt = null;
+    user.deletedBy = null;
+    await user.save();
+    
+    res.json({ message: 'User restored successfully' });
+  } catch (error) {
+    console.error('Restore user error:', error);
+    res.status(500).json({ message: 'Failed to restore user' });
+  }
+};
 
+// Get all deleted users (Super Admin only)
+exports.getDeletedUsers = async (req, res) => {
+  try {
+    const deletedUsers = await User.find({ isDeleted: true }).select('-password -transactionPin');
+    res.json({ users: deletedUsers });
+  } catch (error) {
+    console.error('Get deleted users error:', error);
+    res.status(500).json({ message: 'Failed to fetch deleted users' });
+  }
+};
+
+// Permanent delete (Super Admin only)
+exports.permanentDeleteUser = async (req, res) => {
+  try {
+    const { email } = req.params;
+    const user = await User.findOneAndDelete({ email, isDeleted: true });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found in recycle bin' });
+    }
+    
+    res.json({ message: 'User permanently deleted' });
+  } catch (error) {
+    console.error('Permanent delete error:', error);
+    res.status(500).json({ message: 'Failed to permanently delete user' });
+  }
+};
+
+
+// exports.deactivateUser = async (req, res) => {
+//   try {
+//     const { email } = req.params;
+//     const user = await User.findOneAndUpdate(
+//       { email }, 
+//       { isActive: false },
+//       { new: true }
+//     );
+    
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+    
+//     res.json({ message: 'User deactivated successfully' });
+//   } catch (error) {
+//     console.error('Deactivate user error:', error);
+//     res.status(500).json({ message: 'Failed to deactivate user' });
+//   }
+// };
+
+// // Add reactivation function
+// exports.reactivateUser = async (req, res) => {
+//   try {
+//     const { email } = req.params;
+//     const user = await User.findOneAndUpdate(
+//       { email }, 
+//       { isActive: true },
+//       { new: true }
+//     );
+    
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+    
+//     res.json({ message: 'User reactivated successfully' });
+//   } catch (error) {
+//     console.error('Reactivate user error:', error);
+//     res.status(500).json({ message: 'Failed to reactivate user' });
+//   }
+// };
 
 exports.deactivateUser = async (req, res) => {
   try {
     const { email } = req.params;
-    const user = await User.findOneAndUpdate(
-      { email }, 
-      { isActive: false },
-      { new: true }
-    );
+    const user = await User.findOne({ email });
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    res.json({ message: 'User deactivated successfully' });
+    // Add super admin seal
+    user.isActive = false;
+    user.deactivatedBy = req.admin.role; // 'admin' or 'superadmin'
+    await user.save();
+    
+    res.json({ 
+      message: 'User deactivated successfully',
+      deactivatedBy: req.admin.role 
+    });
   } catch (error) {
     console.error('Deactivate user error:', error);
     res.status(500).json({ message: 'Failed to deactivate user' });
   }
 };
 
-// Add reactivation function
 exports.reactivateUser = async (req, res) => {
   try {
     const { email } = req.params;
-    const user = await User.findOneAndUpdate(
-      { email }, 
-      { isActive: true },
-      { new: true }
-    );
+    const user = await User.findOne({ email });
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+    
+    // Check super admin seal - if deactivated by superadmin, only superadmin can reactivate
+    if (user.deactivatedBy === 'superadmin' && req.admin.role !== 'superadmin') {
+      return res.status(403).json({ 
+        message: 'Access denied. This user was deactivated by Super Admin and can only be reactivated by Super Admin.' 
+      });
+    }
+    
+    user.isActive = true;
+    user.deactivatedBy = null;
+    await user.save();
     
     res.json({ message: 'User reactivated successfully' });
   } catch (error) {
@@ -237,56 +370,6 @@ exports.reactivateUser = async (req, res) => {
     res.status(500).json({ message: 'Failed to reactivate user' });
   }
 };
-
-
-// Fund user account
-// exports.fundUser = async (req, res) => {
-//   try {
-//     const { email, amount, accountType, description, date } = req.body;
-    
-//     console.log('Fund user request data:', { email, amount, accountType, description, date });
-    
-//     const user = await User.findOne({ email });
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
-    
-//     // Update user balance
-//     user.balances[accountType] += parseFloat(amount);
-//     user.balances.inflow += parseFloat(amount);
-//     await user.save();
-    
-//     console.log('Balance updated, now creating transaction...');
-//     const transactionId = Date.now() + '_' + Math.random().toString(36).substring(2, 9);
-
-//     // Create transaction record with detailed logging
-//     try {
-//        const transactionData = {
-//        userId: user._id,           // Changed from toAccountId
-//        type: 'inflow',  
-//        transactionId: transactionId,          // Changed from 'credit'
-//        amount: parseFloat(amount),
-//        description: description,
-//        createdAt: date ? new Date(date) : new Date()  // Changed from transactionDate
-//        };
-      
-//       console.log('Transaction data:', transactionData);
-      
-//       const transaction = await Transaction.create(transactionData);
-//       console.log('Transaction created successfully:', transaction);
-      
-//     } catch (transactionError) {
-//       console.error('TRANSACTION CREATE ERROR:', transactionError);
-//       console.error('Error details:', transactionError.message);
-//       // Continue - balance was updated successfully
-//     }
-    
-//     res.json({ message: 'User account funded successfully' });
-//   } catch (error) {
-//     console.error('Fund user error:', error);
-//     res.status(500).json({ message: 'Failed to fund user account' });
-//   }
-// };
 
 exports.fundUser = async (req, res) => {
   try {
@@ -502,5 +585,89 @@ exports.getActiveUsers = async (req, res) => {
     res.json(Object.keys(onlineUsers)); 
   } catch (err) {
     res.status(500).json({ message: "Error fetching users" });
+  }
+};
+
+
+// Get all admins (Super Admin only)
+exports.getAllAdmins = async (req, res) => {
+  try {
+    const admins = await Admin.find({ isDeleted: { $ne: true } }).select('-password');
+    res.json({ admins });
+  } catch (error) {
+    console.error('Get admins error:', error);
+    res.status(500).json({ message: 'Failed to fetch admins' });
+  }
+};
+
+// Deactivate admin (Super Admin only)
+exports.deactivateAdmin = async (req, res) => {
+  try {
+    const { email } = req.params;
+    const admin = await Admin.findOne({ email });
+    
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    
+    if (admin.role === 'superadmin') {
+      return res.status(403).json({ message: 'Cannot deactivate another super admin' });
+    }
+    
+    admin.isActive = false;
+    admin.deactivatedBy = 'superadmin';
+    await admin.save();
+    
+    res.json({ message: 'Admin deactivated successfully' });
+  } catch (error) {
+    console.error('Deactivate admin error:', error);
+    res.status(500).json({ message: 'Failed to deactivate admin' });
+  }
+};
+
+// Reactivate admin (Super Admin only)
+exports.reactivateAdmin = async (req, res) => {
+  try {
+    const { email } = req.params;
+    const admin = await Admin.findOne({ email });
+    
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    
+    admin.isActive = true;
+    admin.deactivatedBy = null;
+    await admin.save();
+    
+    res.json({ message: 'Admin reactivated successfully' });
+  } catch (error) {
+    console.error('Reactivate admin error:', error);
+    res.status(500).json({ message: 'Failed to reactivate admin' });
+  }
+};
+
+// Delete admin (Super Admin only)
+exports.deleteAdmin = async (req, res) => {
+  try {
+    const { email } = req.params;
+    const admin = await Admin.findOne({ email });
+    
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    
+    if (admin.role === 'superadmin') {
+      return res.status(403).json({ message: 'Cannot delete another super admin' });
+    }
+    
+    admin.isDeleted = true;
+    admin.deletedAt = new Date();
+    admin.deletedBy = 'superadmin';
+    await admin.save();
+    
+    res.json({ message: 'Admin moved to recycle bin' });
+  } catch (error) {
+    console.error('Delete admin error:', error);
+    res.status(500).json({ message: 'Failed to delete admin' });
   }
 };

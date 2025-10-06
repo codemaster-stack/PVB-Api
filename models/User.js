@@ -29,6 +29,11 @@ const userSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     pinResetToken: String,        // Add this
     pinResetTokenExpiry: Date,
+    role: { type: String, enum: ["user", "admin", "superadmin"], default: "user" },  // ADD THIS
+    isDeleted: { type: Boolean, default: false },  // ADD THIS
+    deletedAt: { type: Date },  // ADD THIS
+    deletedBy: { type: String, enum: ["admin", "superadmin"] },  // ADD THIS
+    deactivatedBy: { type: String, enum: ["admin", "superadmin"] },  // ADD THIS
   },
   { timestamps: true } // <-- schema options go here
 );

@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { protectAdmin } = require("../middleware/adminMiddleware");
+const { protectAdmin, protectSuperAdmin } = require("../middleware/adminMiddleware");
 const upload = require('../config/cloudinaryConfig'); // Import new config
 
 
@@ -25,6 +25,13 @@ const {
   getAllLoans,
   getActiveUsers,
   reactivateUser,
+  restoreUser,              // ADD THIS
+  getDeletedUsers,          // ADD THIS
+  permanentDeleteUser,      // ADD THIS
+  getAllAdmins,             // ADD THIS
+  deactivateAdmin,          // ADD THIS
+  reactivateAdmin,          // ADD THIS
+  deleteAdmin,          
   // updateUser,
   // resetUserPin,
 } = require("../controllers/adminAuthController");
@@ -53,6 +60,20 @@ router.post('/transfer-funds', protectAdmin, transferFunds);
 router.post('/send-email', protectAdmin, sendEmail);
 router.put('/users/:email/profile', protectAdmin, upload.single('profilePic'), updateUserProfile);
 router.get("/active-users", getActiveUsers);
+
+
+// ==================== SUPER ADMIN ONLY ROUTES ====================
+
+// Recycle bin management
+router.get('/recycle-bin/users', protectSuperAdmin, getDeletedUsers);
+router.put('/recycle-bin/users/:email/restore', protectSuperAdmin, restoreUser);
+router.delete('/recycle-bin/users/:email/permanent', protectSuperAdmin, permanentDeleteUser);
+
+// Admin management
+router.get('/admins', protectSuperAdmin, getAllAdmins);
+router.delete('/admins/:email', protectSuperAdmin, deleteAdmin);
+router.put('/admins/:email/deactivate', protectSuperAdmin, deactivateAdmin);
+router.put('/admins/:email/reactivate', protectSuperAdmin, reactivateAdmin);
 
 module.exports = router;
 

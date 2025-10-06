@@ -70,18 +70,27 @@ exports.loginAdmin = async (req, res, next) => {
     const { email, password } = req.body;
 
     const admin = await Admin.findOne({ email });
-   
-     if (admin && (await admin.matchPassword(password))) {
-  res.json({
-    _id: admin._id,
-    username: admin.username,
-    email: admin.email,
-    role: admin.role,  // ADD THIS LINE
-    token: generateToken(admin._id),
-  });
-} else {
-      res.status(401).json({ message: "Invalid email or password" });
+
+    // Check if admin exists and password matches
+    if (!admin || !(await admin.matchPassword(password))) {
+      return res.status(401).json({ message: "Invalid email or password" });
     }
+
+    // Check if admin is deactivated by super admin
+    if (admin.isActive === false) {
+      return res.status(403).json({ 
+        message: "Your account has been deactivated. Contact Super Admin to reactivate." 
+      });
+    }
+
+    // Admin is active, proceed with login
+    res.json({
+      _id: admin._id,
+      username: admin.username,
+      email: admin.email,
+      role: admin.role,
+      token: generateToken(admin._id),
+    });
   } catch (error) {
     next(error);
   }

@@ -197,22 +197,7 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
-// Delete user
-// exports.deleteUser = async (req, res) => {
-//   try {
-//     const { email } = req.params;
-//     const user = await User.findOneAndDelete({ email });
-    
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
-    
-//     res.json({ message: 'User deleted successfully' });
-//   } catch (error) {
-//     console.error('Delete user error:', error);
-//     res.status(500).json({ message: 'Failed to delete user' });
-//   }
-// };
+
 exports.deleteUser = async (req, res) => {
   try {
     const { email } = req.params;
@@ -289,47 +274,6 @@ exports.permanentDeleteUser = async (req, res) => {
 };
 
 
-// exports.deactivateUser = async (req, res) => {
-//   try {
-//     const { email } = req.params;
-//     const user = await User.findOneAndUpdate(
-//       { email }, 
-//       { isActive: false },
-//       { new: true }
-//     );
-    
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
-    
-//     res.json({ message: 'User deactivated successfully' });
-//   } catch (error) {
-//     console.error('Deactivate user error:', error);
-//     res.status(500).json({ message: 'Failed to deactivate user' });
-//   }
-// };
-
-// // Add reactivation function
-// exports.reactivateUser = async (req, res) => {
-//   try {
-//     const { email } = req.params;
-//     const user = await User.findOneAndUpdate(
-//       { email }, 
-//       { isActive: true },
-//       { new: true }
-//     );
-    
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
-    
-//     res.json({ message: 'User reactivated successfully' });
-//   } catch (error) {
-//     console.error('Reactivate user error:', error);
-//     res.status(500).json({ message: 'Failed to reactivate user' });
-//   }
-// };
-
 exports.deactivateUser = async (req, res) => {
   try {
     const { email } = req.params;
@@ -381,66 +325,144 @@ exports.reactivateUser = async (req, res) => {
   }
 };
 
+// exports.fundUser = async (req, res) => {
+//   try {
+//     const { email, amount, accountType, description, date } = req.body;
+    
+//     console.log('Fund user request data:', { email, amount, accountType, description, date });
+    
+//     // Validate accountType
+//     if (!['savings', 'current', 'loan'].includes(accountType)) {
+//       return res.status(400).json({ message: 'Invalid account type' });
+//     }
+    
+//     const user = await User.findOne({ email });
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+    
+//     // Update user balance based on account type
+//     if (!user.balances) {
+//       user.balances = { savings: 0, current: 0, loan: 0, inflow: 0, outflow: 0 };
+//     }
+    
+//     user.balances[accountType] = (user.balances[accountType] || 0) + parseFloat(amount);
+//     user.balances.inflow += parseFloat(amount);
+//     await user.save();
+    
+//     console.log('Balance updated, now creating transaction...');
+//     const transactionId = Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+
+//     // Create transaction record
+//     try {
+//       const transactionData = {
+//         userId: user._id,
+//         type: 'inflow',  
+//         transactionId: transactionId,
+//         amount: parseFloat(amount),
+//         description: description,
+//         accountType: accountType, // Add this to track which account was funded
+//         createdAt: date ? new Date(date) : new Date()
+//       };
+      
+//       console.log('Transaction data:', transactionData);
+      
+//       const transaction = await Transaction.create(transactionData);
+//       console.log('Transaction created successfully:', transaction);
+      
+//     } catch (transactionError) {
+//       console.error('TRANSACTION CREATE ERROR:', transactionError);
+//       console.error('Error details:', transactionError.message);
+//       // Continue - balance was updated successfully
+//     }
+    
+//     res.json({ 
+//       message: `User ${accountType} account funded successfully`,
+//       newBalance: user.balances[accountType]
+//     });
+//   } catch (error) {
+//     console.error('Fund user error:', error);
+//     res.status(500).json({ message: 'Failed to fund user account' });
+//   }
+// };
+
 exports.fundUser = async (req, res) => {
   try {
     const { email, amount, accountType, description, date } = req.body;
-    
+    const adminId = req.user._id; // Authenticated admin
+
     console.log('Fund user request data:', { email, amount, accountType, description, date });
-    
-    // Validate accountType
+
     if (!['savings', 'current', 'loan'].includes(accountType)) {
       return res.status(400).json({ message: 'Invalid account type' });
     }
-    
+
+    const admin = await Admin.findById(adminId);
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+
+    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const fundAmount = parseFloat(amount);
+    if (!amount || isNaN(fundAmount) || fundAmount <= 0) {
+      return res.status(400).json({ message: 'Invalid funding amount' });
     }
-    
-    // Update user balance based on account type
+
+    if (admin.wallet < fundAmount) {
+      return res.status(400).json({ message: 'Insufficient admin wallet balance' });
+    }
+
+    // Deduct from admin wallet
+    admin.wallet -= fundAmount;
+    await admin.save();
+
+    // Credit user balance
     if (!user.balances) {
       user.balances = { savings: 0, current: 0, loan: 0, inflow: 0, outflow: 0 };
     }
-    
-    user.balances[accountType] = (user.balances[accountType] || 0) + parseFloat(amount);
-    user.balances.inflow += parseFloat(amount);
-    await user.save();
-    
-    console.log('Balance updated, now creating transaction...');
-    const transactionId = Date.now() + '_' + Math.random().toString(36).substring(2, 9);
 
-    // Create transaction record
-    try {
-      const transactionData = {
-        userId: user._id,
-        type: 'inflow',  
-        transactionId: transactionId,
-        amount: parseFloat(amount),
-        description: description,
-        accountType: accountType, // Add this to track which account was funded
-        createdAt: date ? new Date(date) : new Date()
-      };
-      
-      console.log('Transaction data:', transactionData);
-      
-      const transaction = await Transaction.create(transactionData);
-      console.log('Transaction created successfully:', transaction);
-      
-    } catch (transactionError) {
-      console.error('TRANSACTION CREATE ERROR:', transactionError);
-      console.error('Error details:', transactionError.message);
-      // Continue - balance was updated successfully
-    }
-    
-    res.json({ 
-      message: `User ${accountType} account funded successfully`,
-      newBalance: user.balances[accountType]
+    user.balances[accountType] = (user.balances[accountType] || 0) + fundAmount;
+    user.balances.inflow += fundAmount;
+    await user.save();
+
+    const transactionId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const transactionDate = date ? new Date(date) : new Date();
+
+    await Transaction.create({
+      userId: user._id,
+      type: 'inflow',
+      transactionId,
+      amount: fundAmount,
+      description: description || `Funded by admin (${admin.email})`,
+      accountType,
+      createdAt: transactionDate
     });
+
+    await Transaction.create({
+      userId: admin._id,
+      type: 'outflow',
+      transactionId,
+      amount: fundAmount,
+      description: `Funded ${user.email}'s ${accountType} account`,
+      accountType: 'wallet',
+      createdAt: transactionDate
+    });
+
+    console.log(`✅ Admin ${admin.email} funded ${user.email} with $${fundAmount}`);
+
+    res.json({
+      message: `User ${accountType} account funded successfully from admin wallet`,
+      adminNewWallet: admin.wallet,
+      userNewBalance: user.balances[accountType]
+    });
+
   } catch (error) {
     console.error('Fund user error:', error);
     res.status(500).json({ message: 'Failed to fund user account' });
   }
 };
+
+
 // Transfer funds between users
 exports.transferFunds = async (req, res) => {
   try {
@@ -508,28 +530,6 @@ exports.transferFunds = async (req, res) => {
   }
 };
 
-// Send email to user
-// exports.sendEmail = async (req, res) => {
-//   try {
-//     const { email, subject, message } = req.body;
-    
-//     const user = await User.findOne({ email });
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
-    
-//     await sendEmail({
-//       email: user.email,
-//       subject: subject,
-//       message: message
-//     });
-    
-//     res.json({ message: 'Email sent successfully' });
-//   } catch (error) {
-//     console.error('Send email error:', error);
-//     res.status(500).json({ message: 'Failed to send email' });
-//   }
-// };
 
 exports.sendEmail = async (req, res) => {
   try {
@@ -747,3 +747,137 @@ exports.getAllSentEmails = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch sent emails' });
   }
 };
+
+
+// @desc    Fund admin wallet (superadmin only)
+exports.fundAdminWallet = async (req, res, next) => {
+  try {
+    const { adminId, amount } = req.body;
+
+    if (!adminId || !amount) {
+      return res.status(400).json({ message: "Admin ID and amount are required" });
+    }
+
+    if (amount <= 0) {
+      return res.status(400).json({ message: "Amount must be greater than 0" });
+    }
+
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    if (admin.role === "superadmin") {
+      return res.status(400).json({ message: "Cannot fund superadmin wallet" });
+    }
+
+    admin.wallet += parseFloat(amount);
+    await admin.save();
+
+    res.json({
+      message: "Wallet funded successfully",
+      admin: {
+        _id: admin._id,
+        username: admin.username,
+        wallet: admin.wallet
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get admin wallet balance
+exports.getAdminWallet = async (req, res, next) => {
+  try {
+    const admin = await Admin.findById(req.admin._id);
+    res.json({ wallet: admin.wallet });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
+
+// Send email to user
+// exports.sendEmail = async (req, res) => {
+//   try {
+//     const { email, subject, message } = req.body;
+    
+//     const user = await User.findOne({ email });
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+    
+//     await sendEmail({
+//       email: user.email,
+//       subject: subject,
+//       message: message
+//     });
+    
+//     res.json({ message: 'Email sent successfully' });
+//   } catch (error) {
+//     console.error('Send email error:', error);
+//     res.status(500).json({ message: 'Failed to send email' });
+//   }
+// };
+
+
+// Delete user
+// exports.deleteUser = async (req, res) => {
+//   try {
+//     const { email } = req.params;
+//     const user = await User.findOneAndDelete({ email });
+    
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+    
+//     res.json({ message: 'User deleted successfully' });
+//   } catch (error) {
+//     console.error('Delete user error:', error);
+//     res.status(500).json({ message: 'Failed to delete user' });
+//   }
+// };
+
+// exports.deactivateUser = async (req, res) => {
+//   try {
+//     const { email } = req.params;
+//     const user = await User.findOneAndUpdate(
+//       { email }, 
+//       { isActive: false },
+//       { new: true }
+//     );
+    
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+    
+//     res.json({ message: 'User deactivated successfully' });
+//   } catch (error) {
+//     console.error('Deactivate user error:', error);
+//     res.status(500).json({ message: 'Failed to deactivate user' });
+//   }
+// };
+
+// // Add reactivation function
+// exports.reactivateUser = async (req, res) => {
+//   try {
+//     const { email } = req.params;
+//     const user = await User.findOneAndUpdate(
+//       { email }, 
+//       { isActive: true },
+//       { new: true }
+//     );
+    
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+    
+//     res.json({ message: 'User reactivated successfully' });
+//   } catch (error) {
+//     console.error('Reactivate user error:', error);
+//     res.status(500).json({ message: 'Failed to reactivate user' });
+//   }
+// };

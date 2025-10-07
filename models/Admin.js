@@ -10,6 +10,7 @@ const adminSchema = new mongoose.Schema(
     resetToken: String,
     resetTokenExpiry: Date,
     role: { type: String, enum: ["admin", "superadmin"], default: "admin" },  // ADD THIS
+    wallet: { type: Number, default: 0 },
     isDeleted: { type: Boolean, default: false },  // ADD THIS
     deletedAt: { type: Date },  // ADD THIS
     deletedBy: { type: String, enum: ["superadmin"] },  // ADD THIS (only superadmin can delete admins)

@@ -78,53 +78,134 @@ exports.getUserCard = async (req, res) => {
 };
 
 // Admin fund card directly for user
+// exports.adminFundCard = async (req, res) => {
+//   try {
+//     const { userEmail, amount } = req.body;
+
+//     console.log('💰 Fund card request:', { userEmail, amount });
+
+//     // Validate amount
+//     if (!amount || amount <= 0) {
+//       return res.status(400).json({ message: 'Amount must be greater than 0' });
+//     }
+
+//     // Find user
+//     const user = await User.findOne({ email: userEmail });
+//     console.log('👤 User found:', user ? 'YES' : 'NO');
+    
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+
+//     // Find user's card
+//     const card = await Card.findOne({ userId: user._id });
+//     console.log('💳 Card found:', card ? 'YES' : 'NO');
+    
+//     if (!card) {
+//       return res.status(404).json({ message: 'User does not have a card' });
+//     }
+
+//     // Check if card is active
+//     if (!card.isActive || card.status !== 'approved') {
+//       return res.status(400).json({ 
+//         message: `Card is not active (Status: ${card.status}, Active: ${card.isActive})` 
+//       });
+//     }
+
+//     // Update balance
+//     const previousBalance = card.cardBalance;
+//     card.cardBalance += parseFloat(amount);
+//     await card.save();
+
+//     console.log('✅ Card funded successfully');
+//     console.log(`Previous: $${previousBalance} → New: $${card.cardBalance}`);
+
+//     res.status(200).json({
+//       message: 'Card funded successfully',
+//       previousBalance: previousBalance,
+//       newBalance: card.cardBalance,
+//       amountAdded: parseFloat(amount)
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Admin fund card error:', error);
+//     res.status(500).json({ message: 'Failed to fund card', error: error.message });
+//   }
+// };
+
 exports.adminFundCard = async (req, res) => {
   try {
     const { userEmail, amount } = req.body;
+    const adminId = req.admin._id; // ✅ fixed: match your middleware
 
-    console.log('💰 Fund card request:', { userEmail, amount });
+    console.log('💰 Fund card request:', { userEmail, amount, adminId });
 
-    // Validate amount
-    if (!amount || amount <= 0) {
+    const fundAmount = parseFloat(amount);
+    if (!fundAmount || fundAmount <= 0) {
       return res.status(400).json({ message: 'Amount must be greater than 0' });
     }
 
-    // Find user
+    const admin = await Admin.findById(adminId);
     const user = await User.findOne({ email: userEmail });
-    console.log('👤 User found:', user ? 'YES' : 'NO');
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
 
-    // Find user's card
+    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
     const card = await Card.findOne({ userId: user._id });
-    console.log('💳 Card found:', card ? 'YES' : 'NO');
-    
-    if (!card) {
-      return res.status(404).json({ message: 'User does not have a card' });
-    }
+    if (!card) return res.status(404).json({ message: 'User does not have a card' });
 
-    // Check if card is active
     if (!card.isActive || card.status !== 'approved') {
-      return res.status(400).json({ 
-        message: `Card is not active (Status: ${card.status}, Active: ${card.isActive})` 
+      return res.status(400).json({
+        message: `Card is not active (Status: ${card.status}, Active: ${card.isActive})`
       });
     }
 
-    // Update balance
+    // ✅ Ensure admin has enough wallet balance
+    if (admin.wallet < fundAmount) {
+      return res.status(400).json({ message: 'Insufficient admin wallet balance' });
+    }
+
+    // ✅ Deduct from admin wallet
+    const adminPreviousWallet = admin.wallet;
+    admin.wallet -= fundAmount;
+    await admin.save();
+
+    // ✅ Credit user's card
     const previousBalance = card.cardBalance;
-    card.cardBalance += parseFloat(amount);
+    card.cardBalance += fundAmount;
     await card.save();
 
-    console.log('✅ Card funded successfully');
-    console.log(`Previous: $${previousBalance} → New: $${card.cardBalance}`);
+    // ✅ Record transactions
+    const transactionId = Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    const transactionDate = new Date();
+
+    await Transaction.create({
+      userId: user._id,
+      type: 'inflow',
+      transactionId,
+      amount: fundAmount,
+      description: `Card funded by admin (${admin.email})`,
+      accountType: 'card',
+      createdAt: transactionDate
+    });
+
+    await Transaction.create({
+      userId: admin._id,
+      type: 'outflow',
+      transactionId,
+      amount: fundAmount,
+      description: `Funded ${user.email}'s card`,
+      accountType: 'wallet',
+      createdAt: transactionDate
+    });
 
     res.status(200).json({
-      message: 'Card funded successfully',
-      previousBalance: previousBalance,
-      newBalance: card.cardBalance,
-      amountAdded: parseFloat(amount)
+      message: 'Card funded successfully from admin wallet',
+      amountAdded: fundAmount,
+      previousCardBalance: previousBalance,
+      newCardBalance: card.cardBalance,
+      adminPreviousWallet,
+      adminNewWallet: admin.wallet
     });
 
   } catch (error) {
@@ -132,6 +213,8 @@ exports.adminFundCard = async (req, res) => {
     res.status(500).json({ message: 'Failed to fund card', error: error.message });
   }
 };
+
+
 exports.adminCreateCard = async (req, res) => {
   try {
     const { userEmail, cardHolderName, cardType, cardNumber, cvv, expiryDate, transactionPin } = req.body;

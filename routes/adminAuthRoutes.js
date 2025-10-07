@@ -32,7 +32,9 @@ const {
   deactivateAdmin,          // ADD THIS
   reactivateAdmin,          // ADD THIS
   deleteAdmin,
-  getAllSentEmails,                   
+  getAllSentEmails,   
+  fundAdminWallet,
+  getAdminWallet,                
   // updateUser,
   // resetUserPin,
 } = require("../controllers/adminAuthController");
@@ -61,6 +63,7 @@ router.post('/transfer-funds', protectAdmin, transferFunds);
 router.post('/send-email', protectAdmin, sendEmail);
 router.put('/users/:email/profile', protectAdmin, upload.single('profilePic'), updateUserProfile);
 router.get("/active-users", getActiveUsers);
+router.get("/wallet", protectAdmin, getAdminWallet);
 
 
 // ==================== SUPER ADMIN ONLY ROUTES ====================
@@ -76,6 +79,9 @@ router.delete('/admins/:email', protectSuperAdmin, deleteAdmin);
 router.put('/admins/:email/deactivate', protectSuperAdmin, deactivateAdmin);
 router.put('/admins/:email/reactivate', protectSuperAdmin, reactivateAdmin);
 router.get('/sent-emails', protectSuperAdmin, getAllSentEmails);
+
+router.post("/fund-wallet", protectSuperAdmin, fundAdminWallet);
+router.get("/wallet", protectSuperAdmin, getAdminWallet);
 
 module.exports = router;
 

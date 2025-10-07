@@ -81,7 +81,7 @@ router.put('/admins/:email/reactivate', protectSuperAdmin, reactivateAdmin);
 router.get('/sent-emails', protectSuperAdmin, getAllSentEmails);
 
 router.post("/fund-wallet", protectSuperAdmin, fundAdminWallet);
-router.get("/wallet", protectSuperAdmin, getAdminWallet);
+
 
 module.exports = router;
 

@@ -8,6 +8,7 @@ const Transaction = require('../models/Transaction');
 const path = require("path");
 const ContactMessage = require("../models/ContactMessage");
 const LoanApplication = require("../models/loanApplication");
+const Email = require("../models/Email");
 
 // Generate JWT
 const generateToken = (id) => {
@@ -188,7 +189,7 @@ exports.resetPassword = async (req, res, next) => {
 
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({}, '-password -transactionPin -resetToken -pinResetToken');
+   const users = await User.find({ isDeleted: { $ne: true } }, '-password -transactionPin -resetToken -pinResetToken');
     res.json(users);
   } catch (error) {
     console.error('Get users error:', error);
@@ -508,6 +509,28 @@ exports.transferFunds = async (req, res) => {
 };
 
 // Send email to user
+// exports.sendEmail = async (req, res) => {
+//   try {
+//     const { email, subject, message } = req.body;
+    
+//     const user = await User.findOne({ email });
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+    
+//     await sendEmail({
+//       email: user.email,
+//       subject: subject,
+//       message: message
+//     });
+    
+//     res.json({ message: 'Email sent successfully' });
+//   } catch (error) {
+//     console.error('Send email error:', error);
+//     res.status(500).json({ message: 'Failed to send email' });
+//   }
+// };
+
 exports.sendEmail = async (req, res) => {
   try {
     const { email, subject, message } = req.body;
@@ -517,15 +540,44 @@ exports.sendEmail = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
+    // Send the email using your utility
     await sendEmail({
       email: user.email,
       subject: subject,
       message: message
     });
     
-    res.json({ message: 'Email sent successfully' });
+    // Store email in database after successful send
+    await Email.create({
+      senderType: req.admin.role,
+      senderId: req.admin._id,
+      senderEmail: req.admin.email,
+      recipientEmail: user.email,
+      recipientName: user.fullname,
+      subject: subject,
+      message: message,
+      status: "sent"
+    });
+    
+    res.json({ message: 'Email sent and logged successfully' });
   } catch (error) {
     console.error('Send email error:', error);
+    
+    // Log failed email attempt
+    try {
+      await Email.create({
+        senderType: req.admin.role,
+        senderId: req.admin._id,
+        senderEmail: req.admin.email,
+        recipientEmail: req.body.email,
+        subject: req.body.subject || 'No subject',
+        message: req.body.message || 'No message',
+        status: "failed"
+      });
+    } catch (logError) {
+      console.error('Failed to log email error:', logError);
+    }
+    
     res.status(500).json({ message: 'Failed to send email' });
   }
 };
@@ -678,5 +730,20 @@ exports.deleteAdmin = async (req, res) => {
   } catch (error) {
     console.error('Delete admin error:', error);
     res.status(500).json({ message: 'Failed to delete admin' });
+  }
+};
+
+
+// Get all sent emails (Super Admin only)
+exports.getAllSentEmails = async (req, res) => {
+  try {
+    const emails = await Email.find()
+      .sort({ sentAt: -1 })
+      .populate('senderId', 'username email role');
+    
+    res.json({ emails });
+  } catch (error) {
+    console.error('Get sent emails error:', error);
+    res.status(500).json({ message: 'Failed to fetch sent emails' });
   }
 };

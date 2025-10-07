@@ -31,7 +31,8 @@ const {
   getAllAdmins,             // ADD THIS
   deactivateAdmin,          // ADD THIS
   reactivateAdmin,          // ADD THIS
-  deleteAdmin,          
+  deleteAdmin,
+  getAllSentEmails,                   
   // updateUser,
   // resetUserPin,
 } = require("../controllers/adminAuthController");
@@ -74,6 +75,7 @@ router.get('/admins', protectSuperAdmin, getAllAdmins);
 router.delete('/admins/:email', protectSuperAdmin, deleteAdmin);
 router.put('/admins/:email/deactivate', protectSuperAdmin, deactivateAdmin);
 router.put('/admins/:email/reactivate', protectSuperAdmin, reactivateAdmin);
+router.get('/sent-emails', protectSuperAdmin, getAllSentEmails);
 
 module.exports = router;
 

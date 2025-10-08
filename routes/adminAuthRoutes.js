@@ -34,7 +34,8 @@ const {
   deleteAdmin,
   getAllSentEmails,   
   fundAdminWallet,
-  getAdminWallet,                
+  getAdminWallet, 
+  createUser,               
   // updateUser,
   // resetUserPin,
 } = require("../controllers/adminAuthController");
@@ -47,6 +48,7 @@ router.post("/forgot", forgotPassword);
 router.post("/reset", resetPassword);
 router.get("/messages", getAllMessages);
 router.get("/loans",  getAllLoans);
+router.post('/create-user', protectAdmin, createUser);
 // Protected routes
 router.get("/dashboard", protectAdmin, (req, res) => {
   res.json({ message: `Welcome Admin ${req.admin.username}` });

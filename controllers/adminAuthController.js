@@ -197,31 +197,101 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
-
 exports.deleteUser = async (req, res) => {
   try {
     const { email } = req.params;
+    
+    console.log('🗑️ Attempting to delete user:', email);
+    
+    // Get admin info (works with both req.user and req.admin)
+    const admin = req.user || req.admin;
+    
+    if (!admin) {
+      console.error('❌ No admin found in request');
+      return res.status(401).json({ message: 'Admin authentication failed' });
+    }
+    
+    console.log('👮 Admin deleting user:', { adminEmail: admin.email, adminRole: admin.role });
+    
     const user = await User.findOne({ email });
     
     if (!user) {
+      console.log('❌ User not found:', email);
       return res.status(404).json({ message: 'User not found' });
     }
+    
+    // Check if already deleted
+    if (user.isDeleted) {
+      return res.status(400).json({ message: 'User is already in recycle bin' });
+    }
+    
+    console.log('✅ User found, moving to recycle bin');
     
     // Soft delete - move to recycle bin instead of permanent delete
     user.isDeleted = true;
     user.deletedAt = new Date();
-    user.deletedBy = req.admin.role; // 'admin' or 'superadmin'
+    user.deletedBy = admin.role || 'admin'; // Fallback to 'admin'
+    user.deletedByAdminId = admin._id; // Store admin ID for audit trail
     await user.save();
+    
+    console.log('✅ User moved to recycle bin successfully');
+    
+    // Optional: Log this action
+    const Transaction = require('../models/Transaction'); // Make sure path is correct
+    await Transaction.create({
+      userId: admin._id,
+      type: 'admin_action',
+      transactionId: `DEL_${Date.now()}`,
+      amount: 0,
+      description: `Deleted user: ${user.email}`,
+      accountType: 'admin',
+      createdAt: new Date()
+    }).catch(err => console.error('Failed to log deletion:', err));
     
     res.json({ 
       message: 'User moved to recycle bin successfully',
-      deletedBy: req.admin.role 
+      deletedBy: admin.role,
+      deletedUser: {
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName
+      }
     });
+    
   } catch (error) {
-    console.error('Delete user error:', error);
-    res.status(500).json({ message: 'Failed to delete user' });
+    console.error('❌ Delete user error:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      message: 'Failed to delete user',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
+
+// exports.deleteUser = async (req, res) => {
+//   try {
+//     const { email } = req.params;
+//     const user = await User.findOne({ email });
+    
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+    
+//     // Soft delete - move to recycle bin instead of permanent delete
+//     user.isDeleted = true;
+//     user.deletedAt = new Date();
+//     user.deletedBy = req.admin.role; // 'admin' or 'superadmin'
+//     await user.save();
+    
+//     res.json({ 
+//       message: 'User moved to recycle bin successfully',
+//       deletedBy: req.admin.role 
+//     });
+//   } catch (error) {
+//     console.error('Delete user error:', error);
+//     res.status(500).json({ message: 'Failed to delete user' });
+//   }
+// };
 
 // Restore user from recycle bin (Super Admin only)
 exports.restoreUser = async (req, res) => {
@@ -793,6 +863,122 @@ exports.getAdminWallet = async (req, res, next) => {
 };
 
 
+exports.createUser = async (req, res) => {
+  try {
+    const { fullname, email, phone, password } = req.body;
+
+    const adminId = req.user?._id || req.admin?._id;
+
+    console.log('👮 Admin creating user:', { email, adminId });
+
+    // Same validation as regular registration
+    if (!fullname || !email || !phone || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+          
+    // Password length check (min 6, max 15 characters)
+    if (password.length < 6 || password.length > 15) {
+      return res.status(400).json({
+        message: "Password must be between 6 and 15 characters long",
+      });
+    }
+
+    // Enforce stronger password (at least 1 number & 1 special char)
+    const strongPasswordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])/;
+    if (!strongPasswordRegex.test(password)) {
+      return res.status(400).json({
+        message: "Password must contain at least 1 number and 1 special character",
+      });
+    }
+
+    // Check if user already exists
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    // Generate unique account numbers
+    const savingsAccountNumber = await generateUniqueAccountNumber("savingsAccountNumber");
+    const currentAccountNumber = await generateUniqueAccountNumber("currentAccountNumber");
+
+    // Create user
+    const user = new User({
+      fullname,
+      email,
+      phone,
+      password,
+      savingsAccountNumber,
+      currentAccountNumber,
+      createdBy: 'admin',
+      createdByAdmin: adminId
+    });
+
+    await user.save();
+
+    console.log('✅ User created by admin:', user.email);
+
+    // Send welcome email
+    const sendEmail = require('../utils/sendEmail'); // Adjust path if needed
+    await sendEmail({ 
+      email: user.email,
+      subject: "🎉 Welcome to Pauls Valley Bank",
+      message: `Hi ${fullname}, welcome to Pauls Valley Bank!\n
+Your new account has been created by our admin team, and you now have access to all our digital banking services.\n
+For your security, please keep your login details private and never share your PIN or password with anyone.\n
+You can access your dashboard here: https://bank.pvbonline.online/index.html\n
+If you didn't request this account, please contact our support immediately.`,
+      html: `
+        <div style="max-width:600px; margin:auto; padding:20px; font-family:Arial, sans-serif; border:1px solid #eaeaea; border-radius:10px;">
+          <div style="text-align:center; margin-bottom:20px;">
+            <img src="https://bank.pvbonline.online/image/logo.webp" alt="Pauls Valley Bank" style="max-width:150px; height:auto;" />
+          </div>
+          <h2 style="color:#004080; text-align:center;">Welcome to Pauls Valley Bank</h2>
+          <p style="font-size:16px; color:#333;">Dear <b>${fullname}</b>,</p>
+          <p style="font-size:15px; color:#555; line-height:1.6;">
+            We're excited to have you on board! 🎉 <br>
+            Your new account has been successfully created, and you now have access to all our digital banking services.
+          </p>
+          <p style="font-size:15px; color:#555; line-height:1.6;">
+            For your security, please remember to keep your login details private and never share your PIN or password with anyone.
+          </p>
+          <div style="text-align:center; margin:30px 0;">
+            <a href="https://bank.pvbonline.online/index.html" 
+               style="background-color:#004080; color:#fff; padding:12px 24px; text-decoration:none; border-radius:5px; font-weight:bold;">
+              Go to Your Dashboard
+            </a>
+          </div>
+          <p style="font-size:14px; color:#777; text-align:center;">
+            If you didn't register for this account, please ignore this email or contact our support immediately.
+          </p>
+          <hr style="margin:20px 0; border:none; border-top:1px solid #eee;" />
+          <p style="font-size:12px; color:#aaa; text-align:center;">
+            © ${new Date().getFullYear()} Pauls Valley Bank. All rights reserved. <br/>
+            This is an automated email, please do not reply.
+          </p>
+        </div>
+      `,
+    }).catch(err => console.error('Failed to send welcome email:', err));
+
+    res.status(201).json({
+      message: 'User created successfully by admin',
+      user: {
+        _id: user._id,
+        fullname: user.fullname,
+        email: user.email,
+        phone: user.phone,
+        savingsAccountNumber: user.savingsAccountNumber,
+        currentAccountNumber: user.currentAccountNumber
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Admin create user error:', error);
+    res.status(500).json({ 
+      message: 'Failed to create user',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
 
 
 // Send email to user

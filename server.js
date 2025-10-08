@@ -12,6 +12,8 @@ const publicLoanRoutes = require("./routes/publicLoanRoutes");
 const transactionRoutes = require("./routes/transactionRoutes");
 const cardRoutes = require('./routes/cardRoutes');
 const adminCardRoutes = require('./routes/adminCardRoutes');
+const ChatMessage = require("./models/ChatMessage");
+const chatRoutes = require("./routes/chatRoutes");
 
 const path = require("path");
 const http = require("http");
@@ -39,7 +41,7 @@ app.use("/api/public/loans", publicLoanRoutes);
 app.use("/api/transaction", transactionRoutes);
 app.use('/api/user', cardRoutes);
 app.use('/api/admin', adminCardRoutes);
-
+app.use("/api/chat", chatRoutes);
 // Keep static serving for frontend files
 app.use(express.static(path.join(__dirname, "frontend")));
 
@@ -63,12 +65,6 @@ let socketToVisitor = {};
 io.on("connection", (socket) => {
   console.log("🔌 New client connected:", socket.id);
 
-  // Visitor joins
-  // socket.on("joinVisitor", (visitorId) => {
-  //   visitors[visitorId] = socket.id;
-  //   console.log(`Visitor ${visitorId} connected with socket ${socket.id}`);
-  // });
-
 
   socket.on("joinVisitor", (visitorId) => {
   visitors[visitorId] = socket.id;
@@ -83,8 +79,31 @@ io.on("connection", (socket) => {
   });
 
   // Visitor sends message → broadcast to admins
-  socket.on("visitorMessage", (data) => {
+  // socket.on("visitorMessage", (data) => {
+  //   console.log("📨 Visitor message received:", data);
+  //   // Send to admins with proper format
+  //   io.to("admins").emit("chatMessage", { 
+  //     sender: "visitor", 
+  //     visitorId: data.visitorId,
+  //     text: data.text 
+  //   });
+  // });
+  socket.on("visitorMessage", async (data) => {
     console.log("📨 Visitor message received:", data);
+    
+    // Save to database
+    try {
+      await ChatMessage.create({
+        sender: "user",
+        senderEmail: data.visitorId || "anonymous",
+        senderName: data.visitorName || "Visitor",
+        receiverEmail: "admin",
+        message: data.text
+      });
+    } catch (error) {
+      console.error("Error saving visitor message:", error);
+    }
+    
     // Send to admins with proper format
     io.to("admins").emit("chatMessage", { 
       sender: "visitor", 
@@ -94,8 +113,28 @@ io.on("connection", (socket) => {
   });
 
   // Admin sends message → send only to target visitor
-  socket.on("adminMessage", ({ visitorId, text }) => {
+  // socket.on("adminMessage", ({ visitorId, text }) => {
+  //   const visitorSocket = visitors[visitorId];
+  //   if (visitorSocket) {
+  //     io.to(visitorSocket).emit("chatMessage", { sender: "admin", text });
+  //   }
+  // });
+socket.on("adminMessage", async ({ visitorId, text, adminEmail, adminName }) => {
     const visitorSocket = visitors[visitorId];
+    
+    // Save to database
+    try {
+      await ChatMessage.create({
+        sender: "admin",
+        senderEmail: adminEmail || "admin@pvbonline.online",
+        senderName: adminName || "Admin",
+        receiverEmail: visitorId || "visitor",
+        message: text
+      });
+    } catch (error) {
+      console.error("Error saving admin message:", error);
+    }
+    
     if (visitorSocket) {
       io.to(visitorSocket).emit("chatMessage", { sender: "admin", text });
     }
@@ -112,15 +151,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ✨ NEW: Visitor typing notification
-  // socket.on("visitorTyping", (data) => {
-  //   console.log(`👤 Visitor ${socket.id} typing:`, data.typing);
-  //   // Send typing status to all admins with the visitor's socket ID
-  //   io.to("admins").emit("visitorTyping", { 
-  //     visitorId: socket.id, // Use socket.id as the identifier
-  //     typing: data.typing 
-  //   });
-  // });
+ 
 
   socket.on("visitorTyping", (data) => {
   const visitorId = socketToVisitor[socket.id]; // Get custom visitorId
@@ -132,16 +163,7 @@ io.on("connection", (socket) => {
   });
 });
 
-//   socket.on("disconnect", () => {
-//     console.log("❌ Client disconnected", socket.id);
-//     for (const [id, sockId] of Object.entries(visitors)) {
-//       if (sockId === socket.id) {
-//         delete visitors[id];
-//         break;
-//       }
-//     }
-//   });
-// });
+
 socket.on("disconnect", () => {
   console.log("❌ Client disconnected", socket.id);
   const visitorId = socketToVisitor[socket.id];

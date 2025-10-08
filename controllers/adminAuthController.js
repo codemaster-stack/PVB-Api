@@ -272,8 +272,6 @@ exports.permanentDeleteUser = async (req, res) => {
     res.status(500).json({ message: 'Failed to permanently delete user' });
   }
 };
-
-
 exports.deactivateUser = async (req, res) => {
   try {
     const { email } = req.params;
@@ -283,9 +281,17 @@ exports.deactivateUser = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // Add super admin seal
+    // Prevent deactivating yourself
+    if (user._id.toString() === req.admin._id.toString() || 
+        user._id.toString() === req.user?._id.toString()) {
+      return res.status(400).json({ message: 'You cannot deactivate yourself' });
+    }
+    
+    // Store who deactivated and their role
     user.isActive = false;
-    user.deactivatedBy = req.admin.role; // 'admin' or 'superadmin'
+    user.deactivatedBy = req.admin._id || req.user._id; // Store admin ID
+    user.deactivatedByRole = req.admin.role || req.user.role; // Store role
+    user.deactivatedAt = new Date();
     await user.save();
     
     res.json({ 
@@ -307,15 +313,37 @@ exports.reactivateUser = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // Check super admin seal - if deactivated by superadmin, only superadmin can reactivate
-    if (user.deactivatedBy === 'superadmin' && req.admin.role !== 'superadmin') {
-      return res.status(403).json({ 
-        message: 'Access denied. This user was deactivated by Super Admin and can only be reactivated by Super Admin.' 
-      });
+    if (user.isActive) {
+      return res.status(400).json({ message: 'User is already active' });
+    }
+    
+    // RULE: Super admin can reactivate anyone
+    if (req.admin.role === 'superadmin') {
+      // Super admin has full access, continue to reactivation
+    }
+    // RULE: Admin can ONLY reactivate users they personally deactivated
+    else if (req.admin.role === 'admin') {
+      // Check if deactivated by super admin
+      if (user.deactivatedByRole === 'superadmin') {
+        return res.status(403).json({ 
+          message: 'Access denied. This user was deactivated by Super Admin and can only be reactivated by Super Admin.' 
+        });
+      }
+      
+      // Check if admin is trying to reactivate someone else's deactivation
+      if (user.deactivatedBy.toString() !== req.admin._id.toString()) {
+        return res.status(403).json({ 
+          message: 'Access denied. You can only reactivate users that you deactivated yourself.' 
+        });
+      }
     }
     
     user.isActive = true;
     user.deactivatedBy = null;
+    user.deactivatedByRole = null;
+    user.deactivatedAt = null;
+    user.reactivatedBy = req.admin._id || req.user._id;
+    user.reactivatedAt = new Date();
     await user.save();
     
     res.json({ message: 'User reactivated successfully' });
@@ -326,6 +354,117 @@ exports.reactivateUser = async (req, res) => {
 };
 
 
+// exports.deactivateUser = async (req, res) => {
+//   try {
+//     const { email } = req.params;
+//     const user = await User.findOne({ email });
+    
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+    
+//     // Add super admin seal
+//     user.isActive = false;
+//     user.deactivatedBy = req.admin.role; // 'admin' or 'superadmin'
+//     await user.save();
+    
+//     res.json({ 
+//       message: 'User deactivated successfully',
+//       deactivatedBy: req.admin.role 
+//     });
+//   } catch (error) {
+//     console.error('Deactivate user error:', error);
+//     res.status(500).json({ message: 'Failed to deactivate user' });
+//   }
+// };
+
+// exports.reactivateUser = async (req, res) => {
+//   try {
+//     const { email } = req.params;
+//     const user = await User.findOne({ email });
+    
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+    
+//     // Check super admin seal - if deactivated by superadmin, only superadmin can reactivate
+//     if (user.deactivatedBy === 'superadmin' && req.admin.role !== 'superadmin') {
+//       return res.status(403).json({ 
+//         message: 'Access denied. This user was deactivated by Super Admin and can only be reactivated by Super Admin.' 
+//       });
+//     }
+    
+//     user.isActive = true;
+//     user.deactivatedBy = null;
+//     await user.save();
+    
+//     res.json({ message: 'User reactivated successfully' });
+//   } catch (error) {
+//     console.error('Reactivate user error:', error);
+//     res.status(500).json({ message: 'Failed to reactivate user' });
+//   }
+// };
+
+// exports.fundUser = async (req, res) => {
+//   try {
+//     const { email, amount, accountType, description, date } = req.body;
+    
+//     console.log('Fund user request data:', { email, amount, accountType, description, date });
+    
+//     // Validate accountType
+//     if (!['savings', 'current', 'loan'].includes(accountType)) {
+//       return res.status(400).json({ message: 'Invalid account type' });
+//     }
+    
+//     const user = await User.findOne({ email });
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+    
+//     // Update user balance based on account type
+//     if (!user.balances) {
+//       user.balances = { savings: 0, current: 0, loan: 0, inflow: 0, outflow: 0 };
+//     }
+    
+//     user.balances[accountType] = (user.balances[accountType] || 0) + parseFloat(amount);
+//     user.balances.inflow += parseFloat(amount);
+//     await user.save();
+    
+//     console.log('Balance updated, now creating transaction...');
+//     const transactionId = Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+
+//     // Create transaction record
+//     try {
+//       const transactionData = {
+//         userId: user._id,
+//         type: 'inflow',  
+//         transactionId: transactionId,
+//         amount: parseFloat(amount),
+//         description: description,
+//         accountType: accountType, // Add this to track which account was funded
+//         createdAt: date ? new Date(date) : new Date()
+//       };
+      
+//       console.log('Transaction data:', transactionData);
+      
+//       const transaction = await Transaction.create(transactionData);
+//       console.log('Transaction created successfully:', transaction);
+      
+//     } catch (transactionError) {
+//       console.error('TRANSACTION CREATE ERROR:', transactionError);
+//       console.error('Error details:', transactionError.message);
+//       // Continue - balance was updated successfully
+//     }
+    
+//     res.json({ 
+//       message: `User ${accountType} account funded successfully`,
+//       newBalance: user.balances[accountType]
+//     });
+//   } catch (error) {
+//     console.error('Fund user error:', error);
+//     res.status(500).json({ message: 'Failed to fund user account' });
+//   }
+// };
 
 exports.fundUser = async (req, res) => {
   try {

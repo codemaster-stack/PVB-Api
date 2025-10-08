@@ -13,18 +13,21 @@ const protectAdmin = async (req, res, next) => {
       token = req.headers.authorization.split(" ")[1];
       console.log("Received token:", token);
 
-      // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       console.log("Decoded token:", decoded);
 
-      // Attach admin to request object (excluding password)
-      req.admin = await Admin.findById(decoded.id).select("-password");
-      console.log("Found admin:", !!req.admin);
-
-      if (!req.admin) {
+      const admin = await Admin.findById(decoded.id).select("-password");
+      
+      if (!admin) {
         console.log("Admin not found in database for ID:", decoded.id);
         return res.status(401).json({ message: "Not authorized as admin" });
       }
+
+      // Attach admin to BOTH req.admin AND req.user
+      req.admin = admin;
+      req.user = admin;  // ADD THIS LINE
+      
+      console.log("Found admin:", !!req.admin);
 
       next();
     } catch (error) {

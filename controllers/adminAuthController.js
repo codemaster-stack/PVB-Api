@@ -358,12 +358,25 @@ exports.reactivateUser = async (req, res) => {
 exports.fundUser = async (req, res) => {
   try {
     const { email, amount, accountType, description, date } = req.body;
-    const adminId = req.user._id; // Authenticated admin
+    const adminId = req.user._id;
 
     console.log('Fund user request data:', { email, amount, accountType, description, date });
 
+    // Validate required fields
+    if (!email || !amount || !accountType) {
+      return res.status(400).json({ 
+        message: 'Missing required fields: email, amount, and accountType are required' 
+      });
+    }
+
     if (!['savings', 'current', 'loan'].includes(accountType)) {
       return res.status(400).json({ message: 'Invalid account type' });
+    }
+
+    // Validate amount
+    const fundAmount = parseFloat(amount);
+    if (isNaN(fundAmount) || fundAmount <= 0) {
+      return res.status(400).json({ message: 'Invalid funding amount' });
     }
 
     const admin = await Admin.findById(adminId);
@@ -372,14 +385,10 @@ exports.fundUser = async (req, res) => {
     if (!admin) return res.status(404).json({ message: 'Admin not found' });
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-   if (!amount) {
-  return res.status(400).json({ message: 'Amount is required' });
-}
-
-const fundAmount = parseFloat(amount);
-if (isNaN(fundAmount) || fundAmount <= 0) {
-  return res.status(400).json({ message: 'Invalid funding amount' });
-}
+    // Initialize admin wallet if undefined
+    if (admin.wallet === undefined || admin.wallet === null) {
+      admin.wallet = 0;
+    }
 
     if (admin.wallet < fundAmount) {
       return res.status(400).json({ message: 'Insufficient admin wallet balance' });
@@ -389,20 +398,29 @@ if (isNaN(fundAmount) || fundAmount <= 0) {
     admin.wallet -= fundAmount;
     await admin.save();
 
-    // Credit user balance
+    // Initialize and credit user balance
     if (!user.balances) {
       user.balances = { savings: 0, current: 0, loan: 0, inflow: 0, outflow: 0 };
     }
 
     user.balances[accountType] = (user.balances[accountType] || 0) + fundAmount;
-    user.balances.inflow += fundAmount;
+    user.balances.inflow = (user.balances.inflow || 0) + fundAmount;
     await user.save();
 
-    const transactionId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const transactionDate = date ? new Date(date) : new Date();
+    const transactionId = `TXN_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    
+    // Parse transaction date safely
+    let transactionDate = new Date();
+    if (date) {
+      const parsedDate = new Date(date);
+      if (!isNaN(parsedDate.getTime())) {
+        transactionDate = parsedDate;
+      }
+    }
 
+    // Create user transaction
     await Transaction.create({
-      userId: user._id,
+      userId: user._id.toString(),
       type: 'inflow',
       transactionId,
       amount: fundAmount,
@@ -411,8 +429,9 @@ if (isNaN(fundAmount) || fundAmount <= 0) {
       createdAt: transactionDate
     });
 
+    // Create admin transaction
     await Transaction.create({
-      userId: admin._id,
+      userId: admin._id.toString(),
       type: 'outflow',
       transactionId,
       amount: fundAmount,
@@ -431,10 +450,13 @@ if (isNaN(fundAmount) || fundAmount <= 0) {
 
   } catch (error) {
     console.error('Fund user error:', error);
-    res.status(500).json({ message: 'Failed to fund user account' });
+    console.error('Error stack:', error.stack); // Add this for more details
+    res.status(500).json({ 
+      message: 'Failed to fund user account',
+      error: error.message // Add this temporarily to see the actual error
+    });
   }
 };
-
 
 // Transfer funds between users
 exports.transferFunds = async (req, res) => {

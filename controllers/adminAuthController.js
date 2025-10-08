@@ -230,8 +230,8 @@ exports.deleteUser = async (req, res) => {
     // Soft delete - move to recycle bin instead of permanent delete
     user.isDeleted = true;
     user.deletedAt = new Date();
-    user.deletedBy = admin.role || 'admin'; // Fallback to 'admin'
-    user.deletedByAdminId = admin._id; // Store admin ID for audit trail
+    user.deletedBy = admin._id;
+    user.deletedByAdminId = admin.role || 'admin';
     await user.save();
     
     console.log('✅ User moved to recycle bin successfully');

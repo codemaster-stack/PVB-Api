@@ -15,6 +15,7 @@ const {
   getMe,
   checkPinStatus,
   cardToAccount,
+  getUserCards,
 } = require("../controllers/userController");
 
 
@@ -25,6 +26,7 @@ router.post("/login", login);
 router.post("/forgot", forgotPassword);
 router.post("/reset", resetPassword);
 router.post("/fund-card", protect, fundCard);
+router.get('/cards', protect, getUserCards);
 
 // Protected routes
 router.use(protect);

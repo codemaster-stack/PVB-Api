@@ -492,3 +492,17 @@ exports.cardToAccount = async (req, res) => {
     res.status(500).json({ message: 'Transfer failed' });
   }
 };
+
+exports.getUserCards = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const Card = require('../models/Card');
+    
+    const cards = await Card.find({ userId }).sort({ createdAt: -1 });
+    
+    res.json({ cards });
+  } catch (error) {
+    console.error('Get cards error:', error);
+    res.status(500).json({ message: 'Failed to fetch cards' });
+  }
+};

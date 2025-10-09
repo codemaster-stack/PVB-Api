@@ -421,3 +421,74 @@ exports.checkPinStatus = async (req, res) => {
 
 
 
+exports.cardToAccount = async (req, res) => {
+  try {
+    const { cardId, accountType, amount } = req.body;
+    const userId = req.user._id;
+
+    // Validate inputs
+    if (!cardId || !accountType || !amount || amount <= 0) {
+      return res.status(400).json({ message: 'Invalid transfer details' });
+    }
+
+    if (!['savings', 'current'].includes(accountType)) {
+      return res.status(400).json({ message: 'Invalid account type' });
+    }
+
+    // Find card and user
+    const Card = require('../models/Card');
+    const User = require('../models/User');
+    
+    const card = await Card.findOne({ _id: cardId, userId, status: 'approved' });
+    const user = await User.findById(userId);
+
+    if (!card) {
+      return res.status(404).json({ message: 'Card not found or not approved' });
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check card balance
+    if ((card.balance || 0) < amount) {
+      return res.status(400).json({ message: 'Insufficient card balance' });
+    }
+
+    // Process transfer
+    card.balance = (card.balance || 0) - amount;
+    await card.save();
+
+    if (!user.balances) {
+      user.balances = { savings: 0, current: 0, loan: 0, inflow: 0, outflow: 0 };
+    }
+    
+    user.balances[accountType] = (user.balances[accountType] || 0) + amount;
+    user.balances.inflow = (user.balances.inflow || 0) + amount;
+    await user.save();
+
+    // Create transaction record
+    const Transaction = require('../models/Transaction');
+    const transactionId = `CARD_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+    await Transaction.create({
+      userId: user._id,
+      type: 'inflow',
+      transactionId,
+      amount,
+      description: `Transfer from card ${card.cardNumber.slice(-4)} to ${accountType} account`,
+      accountType,
+      createdAt: new Date()
+    });
+
+    res.json({
+      message: 'Transfer successful',
+      newCardBalance: card.balance,
+      newAccountBalance: user.balances[accountType]
+    });
+
+  } catch (error) {
+    console.error('Card to account transfer error:', error);
+    res.status(500).json({ message: 'Transfer failed' });
+  }
+};

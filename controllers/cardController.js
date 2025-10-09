@@ -584,6 +584,16 @@ exports.cardPurchase = async (req, res) => {
       return res.status(404).json({ message: 'Card not found' });
     }
 
+    // Verify card belongs to user
+    if (card.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Unauthorized access to card' });
+    }
+
+    // Check if card is approved and active
+    if (card.status !== 'approved' || !card.isActive) {
+      return res.status(400).json({ message: 'Card is not active or approved' });
+    }
+
     // Verify PIN
     const isPinValid = await card.matchPin(pin);
     console.log('🔑 PIN valid:', isPinValid);
@@ -592,27 +602,23 @@ exports.cardPurchase = async (req, res) => {
       return res.status(401).json({ message: 'Incorrect PIN' });
     }
 
-    // Check balance
-    console.log('💰 Card balance:', card.balance, 'Required:', amount);
+    // Check balance - FIXED: Use cardBalance instead of balance
+    console.log('💰 Card balance:', card.cardBalance, 'Required:', amount);
     
-    if (card.balance < amount) {
+    if (card.cardBalance < amount) {
       return res.status(400).json({ message: 'Insufficient card balance' });
     }
 
-    // Deduct amount
-    card.balance -= amount;
+    // Deduct amount from card - FIXED: Use cardBalance
+    card.cardBalance -= amount;
     await card.save();
 
-    // Create transaction record
+    // Create transaction record - FIXED: Use 'outflow' type
     const transaction = new Transaction({
-      user: req.user._id,
-      card: cardId,
+      userId: req.user._id,
+      type: 'outflow', // ✅ Changed from 'purchase' to 'outflow'
       amount: amount,
-      type: 'purchase',
-      description: `Memart purchase - ${items.length} items`,
-      deliveryAddress: deliveryAddress,
-      items: items,
-      status: 'completed'
+      description: `Memart purchase - ${items.length} item(s) | Address: ${deliveryAddress}`
     });
     await transaction.save();
 
@@ -620,15 +626,20 @@ exports.cardPurchase = async (req, res) => {
 
     res.json({ 
       message: 'Payment successful',
-      transaction: transaction._id,
-      newBalance: card.balance
+      transactionId: transaction._id,
+      newBalance: card.cardBalance,
+      orderDetails: {
+        items: items.length,
+        totalAmount: amount,
+        deliveryAddress: deliveryAddress
+      }
     });
 
   } catch (error) {
-    console.error('❌ Card purchase error:', error); // ← This will show the exact error
+    console.error('❌ Card purchase error:', error);
     res.status(500).json({ 
       message: 'Payment processing failed',
-      error: error.message // ← Send error details
+      error: error.message
     });
   }
 };

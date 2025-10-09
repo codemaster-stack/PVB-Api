@@ -420,7 +420,12 @@ exports.checkPinStatus = async (req, res) => {
 };
 
 exports.cardToAccount = async (req, res) => {
+  // ✅ MUST be at the TOP before session
+  const Card = require('../models/Card');
+  const User = require('../models/User');
+  const Transaction = require('../models/Transaction');
   const mongoose = require('mongoose');
+  
   const session = await mongoose.startSession();
   
   try {
@@ -429,13 +434,36 @@ exports.cardToAccount = async (req, res) => {
     const { cardId, accountType, amount } = req.body;
     const userId = req.user._id;
 
-    // ... all your validation code stays the same ...
+    // Validate inputs
+    if (!cardId || !accountType || !amount || amount <= 0) {
+      await session.abortTransaction();
+      return res.status(400).json({ message: 'Invalid transfer details' });
+    }
 
-    // Find with session
+    if (!['savings', 'current'].includes(accountType)) {
+      await session.abortTransaction();
+      return res.status(400).json({ message: 'Invalid account type' });
+    }
+
+    // Find card and user with session
     const card = await Card.findOne({ _id: cardId, userId, status: 'approved' }).session(session);
     const user = await User.findById(userId).session(session);
 
-    // ... validation stays the same ...
+    if (!card) {
+      await session.abortTransaction();
+      return res.status(404).json({ message: 'Card not found or not approved' });
+    }
+
+    if (!user) {
+      await session.abortTransaction();
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check card balance
+    if ((card.cardBalance || 0) < amount) {
+      await session.abortTransaction();
+      return res.status(400).json({ message: 'Insufficient card balance' });
+    }
 
     // Process transfer WITH session
     card.cardBalance = (card.cardBalance || 0) - amount;
@@ -450,10 +478,12 @@ exports.cardToAccount = async (req, res) => {
     await user.save({ session });
 
     // Create transaction WITH session and masked card
+    const transactionId = `CARD_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    
     await Transaction.create([{
       userId: user._id,
       type: 'inflow',
-      transactionId: `CARD_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      transactionId,
       amount,
       description: `Transfer from card ending in ${card.cardNumber.slice(-4)} to ${accountType} account`,
       accountType,

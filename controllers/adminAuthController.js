@@ -15,6 +15,25 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
 };
 
+const generateAccountNumber = () =>
+  Math.floor(1000000000 + Math.random() * 9000000000).toString();
+
+const generateUniqueAccountNumber = async (field) => {
+  let accountNumber;
+  let exists = true;
+
+  while (exists) {
+    accountNumber = generateAccountNumber();
+    const existingUser = await User.findOne({ [field]: accountNumber });
+    if (!existingUser) {
+      exists = false;
+    }
+  }
+  return accountNumber;
+};
+
+
+
 // @desc    Register new admin
 exports.registerAdmin = async (req, res, next) => {
   try {
@@ -268,30 +287,6 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
-// exports.deleteUser = async (req, res) => {
-//   try {
-//     const { email } = req.params;
-//     const user = await User.findOne({ email });
-    
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
-    
-//     // Soft delete - move to recycle bin instead of permanent delete
-//     user.isDeleted = true;
-//     user.deletedAt = new Date();
-//     user.deletedBy = req.admin.role; // 'admin' or 'superadmin'
-//     await user.save();
-    
-//     res.json({ 
-//       message: 'User moved to recycle bin successfully',
-//       deletedBy: req.admin.role 
-//     });
-//   } catch (error) {
-//     console.error('Delete user error:', error);
-//     res.status(500).json({ message: 'Failed to delete user' });
-//   }
-// };
 
 // Restore user from recycle bin (Super Admin only)
 exports.restoreUser = async (req, res) => {
@@ -379,6 +374,14 @@ exports.reactivateUser = async (req, res) => {
     const { email } = req.params;
     const user = await User.findOne({ email });
     
+    console.log('🔍 Reactivate attempt:', {
+      userEmail: email,
+      adminRole: req.admin.role,
+      adminId: req.admin._id.toString(),
+      userDeactivatedByRole: user?.deactivatedByRole,
+      userDeactivatedBy: user?.deactivatedBy?.toString()
+    });
+    
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -387,32 +390,35 @@ exports.reactivateUser = async (req, res) => {
       return res.status(400).json({ message: 'User is already active' });
     }
     
-    // RULE: Super admin can reactivate anyone
-    if (req.admin.role === 'superadmin') {
-      // Super admin has full access, continue to reactivation
-    }
-    // RULE: Admin can ONLY reactivate users they personally deactivated
-    else if (req.admin.role === 'admin') {
-      // Check if deactivated by super admin
+    // CRITICAL: Check admin permissions FIRST
+    if (req.admin.role !== 'superadmin') {
+      // Regular admin restrictions
+      
+      // Block if deactivated by superadmin
       if (user.deactivatedByRole === 'superadmin') {
+        console.log('❌ Admin blocked: User was deactivated by superadmin');
         return res.status(403).json({ 
           message: 'Access denied. This user was deactivated by Super Admin and can only be reactivated by Super Admin.' 
         });
       }
       
-      // Check if admin is trying to reactivate someone else's deactivation
-      if (user.deactivatedBy.toString() !== req.admin._id.toString()) {
+      // Block if deactivated by another admin
+      if (user.deactivatedBy && user.deactivatedBy.toString() !== req.admin._id.toString()) {
+        console.log('❌ Admin blocked: User was deactivated by another admin');
         return res.status(403).json({ 
           message: 'Access denied. You can only reactivate users that you deactivated yourself.' 
         });
       }
     }
     
+    // If we reach here, reactivation is allowed
+    console.log('✅ Reactivation allowed');
+    
     user.isActive = true;
     user.deactivatedBy = null;
     user.deactivatedByRole = null;
     user.deactivatedAt = null;
-    user.reactivatedBy = req.admin._id || req.user._id;
+    user.reactivatedBy = req.admin._id;
     user.reactivatedAt = new Date();
     await user.save();
     

@@ -3,6 +3,8 @@ const Card = require('../models/Card');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const Account = require('../models/Account');
+const bcrypt = require('bcryptjs'); 
+
 
 
 // User creates card application
@@ -504,65 +506,129 @@ exports.fundCard = async (req, res) => {
 };
 
 
+// exports.cardPurchase = async (req, res) => {
+//   try {
+//     const { cardId, pin, amount, items, deliveryAddress } = req.body;
+//     const userId = req.user._id;
+
+//     // Validate inputs
+//     if (!cardId || !pin || !amount || !items || !deliveryAddress) {
+//       return res.status(400).json({ message: 'All fields are required' });
+//     }
+
+//     // Find card
+//     const Card = require('../models/Card');
+//     const card = await Card.findOne({ _id: cardId, userId, status: 'approved' });
+
+//     if (!card) {
+//       return res.status(404).json({ message: 'Card not found or not approved' });
+//     }
+
+//     // Verify PIN
+//     const bcrypt = require('bcrypt');
+//     const isPinValid = await bcrypt.compare(pin, card.transactionPin);
+    
+//     if (!isPinValid) {
+//       return res.status(401).json({ message: 'Incorrect PIN' });
+//     }
+
+//     // Check balance
+//     if ((card.balance || 0) < amount) {
+//       return res.status(400).json({ message: 'Insufficient card balance' });
+//     }
+
+//     // Deduct amount
+//     card.balance = (card.balance || 0) - amount;
+//     await card.save();
+
+//     // Log transaction
+//     const Transaction = require('../models/Transaction');
+//     const transactionId = `MEMART_${Date.now()}`;
+
+//     await Transaction.create({
+//       userId,
+//       type: 'outflow',
+//       transactionId,
+//       amount,
+//       description: `Memart demo purchase - ${items.length} items`,
+//       accountType: 'card',
+//       createdAt: new Date()
+//     });
+
+//     res.json({
+//       message: 'Purchase successful',
+//       transactionId,
+//       newBalance: card.balance
+//     });
+
+//   } catch (error) {
+//     console.error('Card purchase error:', error);
+//     res.status(500).json({ message: 'Purchase failed. Please try again.' });
+//   }
+// };
+
 exports.cardPurchase = async (req, res) => {
   try {
-    const { cardId, pin, amount, items, deliveryAddress } = req.body;
-    const userId = req.user._id;
+    console.log('🔍 Card Purchase Request:', {
+      body: req.body,
+      userId: req.user._id
+    });
 
-    // Validate inputs
-    if (!cardId || !pin || !amount || !items || !deliveryAddress) {
-      return res.status(400).json({ message: 'All fields are required' });
-    }
+    const { cardId, pin, amount, items, deliveryAddress } = req.body;
 
     // Find card
-    const Card = require('../models/Card');
-    const card = await Card.findOne({ _id: cardId, userId, status: 'approved' });
+    const card = await Card.findById(cardId);
+    console.log('💳 Card found:', card ? 'Yes' : 'No');
 
     if (!card) {
-      return res.status(404).json({ message: 'Card not found or not approved' });
+      return res.status(404).json({ message: 'Card not found' });
     }
 
     // Verify PIN
-    const bcrypt = require('bcrypt');
-    const isPinValid = await bcrypt.compare(pin, card.transactionPin);
-    
+    const isPinValid = await card.matchPin(pin);
+    console.log('🔑 PIN valid:', isPinValid);
+
     if (!isPinValid) {
       return res.status(401).json({ message: 'Incorrect PIN' });
     }
 
     // Check balance
-    if ((card.balance || 0) < amount) {
+    console.log('💰 Card balance:', card.balance, 'Required:', amount);
+    
+    if (card.balance < amount) {
       return res.status(400).json({ message: 'Insufficient card balance' });
     }
 
     // Deduct amount
-    card.balance = (card.balance || 0) - amount;
+    card.balance -= amount;
     await card.save();
 
-    // Log transaction
-    const Transaction = require('../models/Transaction');
-    const transactionId = `MEMART_${Date.now()}`;
-
-    await Transaction.create({
-      userId,
-      type: 'outflow',
-      transactionId,
-      amount,
-      description: `Memart demo purchase - ${items.length} items`,
-      accountType: 'card',
-      createdAt: new Date()
+    // Create transaction record
+    const transaction = new Transaction({
+      user: req.user._id,
+      card: cardId,
+      amount: amount,
+      type: 'purchase',
+      description: `Memart purchase - ${items.length} items`,
+      deliveryAddress: deliveryAddress,
+      items: items,
+      status: 'completed'
     });
+    await transaction.save();
 
-    res.json({
-      message: 'Purchase successful',
-      transactionId,
+    console.log('✅ Transaction completed');
+
+    res.json({ 
+      message: 'Payment successful',
+      transaction: transaction._id,
       newBalance: card.balance
     });
 
   } catch (error) {
-    console.error('Card purchase error:', error);
-    res.status(500).json({ message: 'Purchase failed. Please try again.' });
+    console.error('❌ Card purchase error:', error); // ← This will show the exact error
+    res.status(500).json({ 
+      message: 'Payment processing failed',
+      error: error.message // ← Send error details
+    });
   }
 };
-
-

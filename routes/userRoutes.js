@@ -16,6 +16,8 @@ const {
   checkPinStatus,
   cardToAccount,
   getUserCards,
+  getTransactionsWithSummary,
+  downloadStatement,
 } = require("../controllers/userController");
 
 
@@ -36,7 +38,8 @@ router.get("/dashboard", getDashboard);
 router.get("/transactions", protect, getTransactions);
 router.get("/my-cards", protect, getMyCards)
 router.post('/card-to-account', protect, cardToAccount);
-
+router.get('/transactions/summary', protect, getTransactionsWithSummary); // Statement page
+router.get('/download-statement', protect, downloadStatement);
 
 router.get('/check-pin-status', protect, checkPinStatus);
 

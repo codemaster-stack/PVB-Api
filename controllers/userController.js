@@ -353,6 +353,151 @@ exports.getTransactions = async (req, res) => {
 };
 
 
+// Get user transactions with filters
+exports.getTransactionsWithSummary = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { startDate, endDate, type, accountType, limit = 50 } = req.query;
+
+    // Build query
+    const query = { userId };
+
+    // Add filters if provided
+    if (type && type !== 'all') {
+      query.type = type;
+    }
+
+    if (accountType && accountType !== 'all') {
+      query.accountType = accountType;
+    }
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query.createdAt.$lte = new Date(endDate);
+      }
+    }
+
+    const Transaction = require('../models/Transaction');
+    
+    const transactions = await Transaction.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit));
+
+    // Calculate totals
+    const totals = {
+      inflow: 0,
+      outflow: 0,
+      count: transactions.length
+    };
+
+    transactions.forEach(txn => {
+      if (txn.type === 'inflow') {
+        totals.inflow += txn.amount || 0;
+      } else if (txn.type === 'outflow') {
+        totals.outflow += txn.amount || 0;
+      }
+    });
+
+    res.json({
+      success: true,
+      transactions,
+      totals,
+      filters: { startDate, endDate, type, accountType }
+    });
+
+  } catch (error) {
+    console.error('Get transactions error:', error);
+    res.status(500).json({ message: 'Failed to fetch transactions' });
+  }
+};
+
+// Download statement as JSON (can be converted to PDF/CSV on frontend)
+exports.downloadStatement = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { startDate, endDate, format = 'json' } = req.query;
+
+    const query = { userId };
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    const Transaction = require('../models/Transaction');
+    const User = require('../models/User');
+
+    const transactions = await Transaction.find(query).sort({ createdAt: -1 });
+    const user = await User.findById(userId).select('firstName lastName email');
+
+    const statement = {
+      user: {
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email
+      },
+      period: {
+        from: startDate || 'Beginning',
+        to: endDate || 'Now'
+      },
+      transactions,
+      summary: {
+        totalInflow: transactions.filter(t => t.type === 'inflow').reduce((sum, t) => sum + t.amount, 0),
+        totalOutflow: transactions.filter(t => t.type === 'outflow').reduce((sum, t) => sum + t.amount, 0),
+        transactionCount: transactions.length
+      },
+      generatedAt: new Date()
+    };
+
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename=statement-${Date.now()}.json`);
+      res.json(statement);
+    } else {
+      res.json(statement);
+    }
+
+  } catch (error) {
+    console.error('Download statement error:', error);
+    res.status(500).json({ message: 'Failed to download statement' });
+  }
+};
+
+
+//    exports.getTransactionsWithSummary = async (req, res) => {
+//   try {
+//     const currentUser = req.user;
+//     const { startDate, endDate, type, accountType } = req.query;
+
+//     const query = { userId: currentUser._id };
+
+//     if (startDate || endDate) {
+//       query.createdAt = {};
+//       if (startDate) query.createdAt.$gte = new Date(startDate);
+//       if (endDate) query.createdAt.$lte = new Date(endDate);
+//     }
+//     if (type && type !== 'all') query.type = type;
+//     if (accountType && accountType !== 'all') query.accountType = accountType;
+
+//     const transactions = await Transaction.find(query).sort({ createdAt: -1 });
+
+//     const totals = {
+//       inflow: transactions.filter(t => t.type === 'inflow').reduce((sum, t) => sum + t.amount, 0),
+//       outflow: transactions.filter(t => t.type === 'outflow').reduce((sum, t) => sum + t.amount, 0),
+//       count: transactions.length
+//     };
+
+//     res.json({ transactions, totals });
+//   } catch (error) {
+//     console.error("Statement transactions error:", error);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// };
+
+
 
 exports.getMe = async (req, res) => {
   try {

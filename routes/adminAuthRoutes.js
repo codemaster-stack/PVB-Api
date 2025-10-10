@@ -39,7 +39,7 @@ const {
   // updateUser,
   // resetUserPin,
 } = require("../controllers/adminAuthController");
-
+const { reviewLoanApplication } = require("../controllers/loanController");
 
 // Public routes
 router.post("/register", registerAdmin);
@@ -66,7 +66,7 @@ router.post('/send-email', protectAdmin, sendEmail);
 router.put('/users/:email/profile', protectAdmin, upload.single('profilePic'), updateUserProfile);
 router.get("/active-users", getActiveUsers);
 router.get("/wallet", protectAdmin, getAdminWallet);
-
+router.put("/review/:loanId", protectAdmin, reviewLoanApplication);
 
 // ==================== SUPER ADMIN ONLY ROUTES ====================
 

@@ -85,6 +85,23 @@ router.get('/sent-emails', protectSuperAdmin, getAllSentEmails);
 router.post("/fund-wallet", protectSuperAdmin, fundAdminWallet);
 
 
+
+router.get("/test-email", async (req, res) => {
+  try {
+    await sendEmail({
+      email: "support@pvbonline.online",
+      subject: "PVNBank Test Email",
+      message: "If you received this, your Zoho email setup works perfectly ✅"
+    });
+    res.json({ message: "Email sent successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Email failed" });
+  }
+});
+
+
+
 module.exports = router;
 
 

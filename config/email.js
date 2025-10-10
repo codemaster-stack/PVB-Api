@@ -44,7 +44,7 @@ const emailTransporter = nodemailer.createTransport({
     pass: process.env.ZOHO_PASS,
   },
   tls: {
-    rejectUnauthorized: true
+    rejectUnauthorized: false
   }
 });
 

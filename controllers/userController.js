@@ -420,7 +420,7 @@ exports.getTransactionsWithSummary = async (req, res) => {
 exports.downloadStatement = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { startDate, endDate, format = 'json' } = req.query;
+    const { startDate, endDate, format = 'pdf' } = req.query;
 
     const query = { userId };
     if (startDate || endDate) {
@@ -430,20 +430,16 @@ exports.downloadStatement = async (req, res) => {
     }
 
     const transactions = await Transaction.find(query).sort({ createdAt: -1 });
-    const user = await User.findById(userId).select('firstName lastName email');
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    const user = await User.findById(userId).select('fullname email');
 
     const statementData = {
       user: {
-        name: `${user.firstName} ${user.lastName}`,
-        email: user.email
+        name: user.fullname,
+        email: user.email,
       },
       period: {
         from: startDate || 'Beginning',
-        to: endDate || 'Now'
+        to: endDate || 'Now',
       },
       transactions,
       summary: {
@@ -453,48 +449,79 @@ exports.downloadStatement = async (req, res) => {
         totalOutflow: transactions
           .filter(t => t.type === 'outflow')
           .reduce((sum, t) => sum + t.amount, 0),
-        transactionCount: transactions.length
+        transactionCount: transactions.length,
       },
-      generatedAt: new Date()
+      generatedAt: new Date(),
     };
 
+    // === PDF VERSION ===
     if (format === 'pdf') {
-      // Generate PDF
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader(
         'Content-Disposition',
         `attachment; filename=statement-${Date.now()}.pdf`
       );
 
-      const doc = new PDFDocument();
+      const doc = new PDFDocument({ margin: 50 });
       doc.pipe(res);
 
-      doc.fontSize(20).text('Transaction Statement', { align: 'center' });
-      doc.moveDown();
-      doc.fontSize(12).text(`Name: ${statementData.user.name}`);
+      // --- Add Bank Logo (optional) ---
+      const logoPath = path.join(__dirname, '../image/logo.webp');
+      try {
+        doc.image(logoPath, 50, 45, { width: 60 });
+      } catch (e) {
+        console.log('Logo not found, skipping image.');
+      }
+
+      // --- Bank Header ---
+      doc
+        .fontSize(20)
+        .fillColor('#333')
+        .text('PVBank Valley', 120, 55)
+        .fontSize(12)
+        .fillColor('#666')
+        .text('Official Transaction Statement', 120, 75);
+
+      doc.moveDown(2);
+
+      // --- User Details ---
+      doc.fontSize(12).fillColor('#000');
+      doc.text(`Name: ${statementData.user.name}`);
       doc.text(`Email: ${statementData.user.email}`);
       doc.text(`Period: ${statementData.period.from} - ${statementData.period.to}`);
       doc.text(`Generated: ${statementData.generatedAt.toLocaleString()}`);
       doc.moveDown();
 
-      doc.fontSize(14).text('Summary:');
+      // --- Summary Section ---
+      doc.fontSize(14).fillColor('#444').text('Account Summary', { underline: true });
+      doc.moveDown(0.5);
       doc.text(`Total Inflow: $${statementData.summary.totalInflow.toFixed(2)}`);
       doc.text(`Total Outflow: $${statementData.summary.totalOutflow.toFixed(2)}`);
       doc.text(`Transaction Count: ${statementData.summary.transactionCount}`);
-      doc.moveDown();
+      doc.moveDown(1.5);
 
-      doc.fontSize(14).text('Transactions:');
+      // --- Transaction Table Header ---
+      doc.fontSize(14).fillColor('#444').text('Transactions', { underline: true });
+      doc.moveDown(0.5);
+      doc.fontSize(12).fillColor('#000');
+      doc.text('Date'.padEnd(20) + 'Description'.padEnd(40) + 'Type'.padEnd(10) + 'Amount', {
+        continued: false,
+      });
+      doc.moveDown(0.5);
+
+      // --- Transactions ---
       transactions.forEach(t => {
-        doc.text(
-          `${t.type.toUpperCase()} - $${t.amount.toFixed(2)} - ${t.description} - ${new Date(
-            t.createdAt
-          ).toLocaleDateString()}`
-        );
+        const date = new Date(t.createdAt).toLocaleDateString();
+        const desc = (t.description || '').slice(0, 35);
+        const type = t.type.toUpperCase();
+        const amount = `$${t.amount.toFixed(2)}`;
+
+        doc.text(`${date.padEnd(20)}${desc.padEnd(40)}${type.padEnd(10)}${amount}`);
       });
 
       doc.end();
     } else {
-      // Default: JSON
+      // === JSON VERSION ===
       res.setHeader('Content-Type', 'application/json');
       res.setHeader(
         'Content-Disposition',

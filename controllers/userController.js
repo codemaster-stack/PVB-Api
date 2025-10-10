@@ -1,3 +1,4 @@
+const PDFDocument = require('pdfkit');
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
@@ -428,13 +429,14 @@ exports.downloadStatement = async (req, res) => {
       if (endDate) query.createdAt.$lte = new Date(endDate);
     }
 
-    const Transaction = require('../models/Transaction');
-    const User = require('../models/User');
-
     const transactions = await Transaction.find(query).sort({ createdAt: -1 });
     const user = await User.findById(userId).select('firstName lastName email');
 
-    const statement = {
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const statementData = {
       user: {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email
@@ -445,59 +447,66 @@ exports.downloadStatement = async (req, res) => {
       },
       transactions,
       summary: {
-        totalInflow: transactions.filter(t => t.type === 'inflow').reduce((sum, t) => sum + t.amount, 0),
-        totalOutflow: transactions.filter(t => t.type === 'outflow').reduce((sum, t) => sum + t.amount, 0),
+        totalInflow: transactions
+          .filter(t => t.type === 'inflow')
+          .reduce((sum, t) => sum + t.amount, 0),
+        totalOutflow: transactions
+          .filter(t => t.type === 'outflow')
+          .reduce((sum, t) => sum + t.amount, 0),
         transactionCount: transactions.length
       },
       generatedAt: new Date()
     };
 
-    if (format === 'json') {
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', `attachment; filename=statement-${Date.now()}.json`);
-      res.json(statement);
-    } else {
-      res.json(statement);
-    }
+    if (format === 'pdf') {
+      // Generate PDF
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename=statement-${Date.now()}.pdf`
+      );
 
+      const doc = new PDFDocument();
+      doc.pipe(res);
+
+      doc.fontSize(20).text('Transaction Statement', { align: 'center' });
+      doc.moveDown();
+      doc.fontSize(12).text(`Name: ${statementData.user.name}`);
+      doc.text(`Email: ${statementData.user.email}`);
+      doc.text(`Period: ${statementData.period.from} - ${statementData.period.to}`);
+      doc.text(`Generated: ${statementData.generatedAt.toLocaleString()}`);
+      doc.moveDown();
+
+      doc.fontSize(14).text('Summary:');
+      doc.text(`Total Inflow: $${statementData.summary.totalInflow.toFixed(2)}`);
+      doc.text(`Total Outflow: $${statementData.summary.totalOutflow.toFixed(2)}`);
+      doc.text(`Transaction Count: ${statementData.summary.transactionCount}`);
+      doc.moveDown();
+
+      doc.fontSize(14).text('Transactions:');
+      transactions.forEach(t => {
+        doc.text(
+          `${t.type.toUpperCase()} - $${t.amount.toFixed(2)} - ${t.description} - ${new Date(
+            t.createdAt
+          ).toLocaleDateString()}`
+        );
+      });
+
+      doc.end();
+    } else {
+      // Default: JSON
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename=statement-${Date.now()}.json`
+      );
+      res.json(statementData);
+    }
   } catch (error) {
     console.error('Download statement error:', error);
     res.status(500).json({ message: 'Failed to download statement' });
   }
 };
-
-
-//    exports.getTransactionsWithSummary = async (req, res) => {
-//   try {
-//     const currentUser = req.user;
-//     const { startDate, endDate, type, accountType } = req.query;
-
-//     const query = { userId: currentUser._id };
-
-//     if (startDate || endDate) {
-//       query.createdAt = {};
-//       if (startDate) query.createdAt.$gte = new Date(startDate);
-//       if (endDate) query.createdAt.$lte = new Date(endDate);
-//     }
-//     if (type && type !== 'all') query.type = type;
-//     if (accountType && accountType !== 'all') query.accountType = accountType;
-
-//     const transactions = await Transaction.find(query).sort({ createdAt: -1 });
-
-//     const totals = {
-//       inflow: transactions.filter(t => t.type === 'inflow').reduce((sum, t) => sum + t.amount, 0),
-//       outflow: transactions.filter(t => t.type === 'outflow').reduce((sum, t) => sum + t.amount, 0),
-//       count: transactions.length
-//     };
-
-//     res.json({ transactions, totals });
-//   } catch (error) {
-//     console.error("Statement transactions error:", error);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// };
-
-
 
 exports.getMe = async (req, res) => {
   try {

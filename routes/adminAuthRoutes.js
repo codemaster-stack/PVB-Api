@@ -87,7 +87,7 @@ router.post("/fund-wallet", protectSuperAdmin, fundAdminWallet);
 
 
 router.get("/test-email", async (req, res) => {
-  const sendEmail = require("../utils/sendMail");
+  const sendEmail = require("../utils/sendEmail");
   try {
     await sendEmail({
       email: "youremail@gmail.com", // your real inbox for testing

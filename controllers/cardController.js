@@ -380,8 +380,15 @@ exports.getMyCards = async (req, res) => {
   try {
     const cards = await Card.find({ userId: req.user.id }).select('-transactionPin');
 
-    // Map cards to include message for deactivated ones
     const responseCards = cards.map(card => {
+      let statusMessage = null;
+
+      if (!card.isApproved) {
+        statusMessage = 'Your card is pending admin approval.';
+      } else if (!card.isActive) {
+        statusMessage = 'Your card has been deactivated, please contact customer care.';
+      }
+
       return {
         _id: card._id,
         cardHolderName: card.cardHolderName,
@@ -391,9 +398,8 @@ exports.getMyCards = async (req, res) => {
         expiryDate: card.expiryDate,
         cardBalance: card.cardBalance ?? 0,
         isActive: card.isActive,
-        statusMessage: card.isActive
-          ? null
-          : 'Your card has been deactivated, please contact customer care.'
+        isApproved: card.isApproved ?? false,
+        statusMessage
       };
     });
 
@@ -403,7 +409,6 @@ exports.getMyCards = async (req, res) => {
     res.status(500).json({ message: "Error fetching cards" });
   }
 };
-
 
 // controllers/cardController.js
 exports.fundCard = async (req, res) => {

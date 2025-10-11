@@ -333,45 +333,45 @@ exports.getTransactionHistory = async (req, res) => {
     res.status(500).json({ message: 'Failed to load transaction history' });
   }
 };
-// @desc    Download transaction statement (CSV)
-// @route   GET /api/transactions/statement?start=YYYY-MM-DD&end=YYYY-MM-DD
-// @access  Private
-exports.downloadStatement = async (req, res) => {
-  try {
-    const { start, end } = req.query;
+// // @desc    Download transaction statement (CSV)
+// // @route   GET /api/transactions/statement?start=YYYY-MM-DD&end=YYYY-MM-DD
+// // @access  Private
+// exports.downloadStatement = async (req, res) => {
+//   try {
+//     const { start, end } = req.query;
 
-    const filter = { userId: req.user.id };
-    if (start && end) {
-      filter.createdAt = {
-        $gte: new Date(start),
-        $lte: new Date(new Date(end).setHours(23, 59, 59))
-      };
-    }
+//     const filter = { userId: req.user.id };
+//     if (start && end) {
+//       filter.createdAt = {
+//         $gte: new Date(start),
+//         $lte: new Date(new Date(end).setHours(23, 59, 59))
+//       };
+//     }
 
-    const transactions = await Transaction.find(filter).sort({ createdAt: -1 });
+//     const transactions = await Transaction.find(filter).sort({ createdAt: -1 });
 
-    if (transactions.length === 0) {
-      return res.status(404).json({ message: "No transactions found" });
-    }
+//     if (transactions.length === 0) {
+//       return res.status(404).json({ message: "No transactions found" });
+//     }
 
-    // Prepare CSV fields
-    const fields = [
-      { label: "Date", value: row => new Date(row.createdAt).toLocaleString() },
-      { label: "Description", value: "description" },
-      { label: "Amount", value: "amount" },
-      { label: "Type", value: "type" },
-    ];
+//     // Prepare CSV fields
+//     const fields = [
+//       { label: "Date", value: row => new Date(row.createdAt).toLocaleString() },
+//       { label: "Description", value: "description" },
+//       { label: "Amount", value: "amount" },
+//       { label: "Type", value: "type" },
+//     ];
 
-    const parser = new Parser({ fields });
-    const csv = parser.parse(transactions);
+//     const parser = new Parser({ fields });
+//     const csv = parser.parse(transactions);
 
-    res.header("Content-Type", "text/csv");
-    res.attachment("statement.csv");
-    return res.send(csv);
-  } catch (err) {
-    console.error("Error generating statement:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
+//     res.header("Content-Type", "text/csv");
+//     res.attachment("statement.csv");
+//     return res.send(csv);
+//   } catch (err) {
+//     console.error("Error generating statement:", err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// };
 
 

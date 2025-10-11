@@ -134,37 +134,6 @@ If you didn’t register for this account, please ignore this email or contact o
   }
 };
 
-// exports.login = async (req, res) => {
-//   try {
-//     const { email, password } = req.body;
-//     const user = await User.findOne({ email });
-
-//     if (!user) return res.status(400).json({ message: "Invalid credentials" });
-
-//     // Check if user is deactivated BEFORE password check
-//     if (user.isActive === false) {
-//       return res.status(403).json({ 
-//         message: "Your account has been deactivated due to inactivity. Please contact customer care via mail or live chat.",
-//         type: "ACCOUNT_DEACTIVATED"
-//       });
-//     }
-
-//     const isMatch = await bcrypt.compare(password, user.password);
-//     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
-
-//     res.json({
-//       _id: user._id,
-//       fullname: user.fullname,
-//       email: user.email,
-//       phone: user.phone,
-//       savingsAccountNumber: user.savingsAccountNumber,
-//       currentAccountNumber: user.currentAccountNumber,
-//       token: generateToken(user._id),
-//     });
-//   } catch (err) {
-//     res.status(500).json({ message: err.message });
-//   }
-// };
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -232,68 +201,7 @@ exports.login = async (req, res) => {
   }
 };
 
-// @desc Forgot password
-// exports.forgotPassword = async (req, res, next) => {
-//   try {
-//     const { email } = req.body;
 
-//     // 1️⃣ Check if user exists
-//     const user = await User.findOne({ email });
-//     if (!user) {
-//       return res.status(404).json({ message: "User not found" });
-//     }
-
-//     // 2️⃣ Generate reset token
-//     const resetToken = crypto.randomBytes(20).toString("hex");
-
-//     // 3️⃣ Hash token and set expiry
-//     user.resetToken = crypto.createHash("sha256").update(resetToken).digest("hex");
-//     user.resetTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 minutes
-//     await user.save({ validateBeforeSave: false });
-
-//     // 4️⃣ Frontend URL for reset page
-//     const resetUrl = `${process.env.FRONTEND_URL}/reset-password.html?token=${resetToken}`;
-
-//     // 5️⃣ Email content
-//     const subject = "🔐 Reset Your PVNBank Password";
-//     const message = `You requested a password reset for your PVNBank account.
-// Click the link below (or copy and paste it into your browser):\n\n${resetUrl}\n\n
-// This link will expire in 15 minutes. If you didn’t request this, please ignore this email.`;
-
-//     const html = `
-//       <div style="font-family: Arial, sans-serif; line-height:1.6; color:#333; max-width:600px; margin:auto; border:1px solid #eee; border-radius:8px; padding:20px;">
-//         <div style="text-align:center;">
-//           <img src="https://bank.pvbonline.online/image/logo.webp" alt="PVNBank Logo" style="width:120px; margin-bottom:20px;" />
-//           <h2 style="color:#2c3e50;">Password Reset Request</h2>
-//         </div>
-//         <p>Hello ${user.fullname || "User"},</p>
-//         <p>We received a request to reset your password for <b>PVNBank</b>.</p>
-//         <p>Please click the button below to set a new password. This link will expire in <b>15 minutes</b>.</p>
-//         <div style="text-align:center; margin:20px 0;">
-//           <a href="${resetUrl}" style="background:#007BFF; color:#fff; text-decoration:none; padding:12px 20px; border-radius:5px; font-weight:bold;">Reset Password</a>
-//         </div>
-//         <p>If you didn’t request this, you can safely ignore this email.</p>
-//         <hr />
-//         <p style="font-size:12px; color:#777; text-align:center;">&copy; ${new Date().getFullYear()} PVNBank. All rights reserved.</p>
-//       </div>
-//     `;
-
-//     // 6️⃣ Send the email using Resend
-//     await sendEmail({
-//       email: user.email,
-//       subject,
-//       message,
-//       html,
-//     });
-
-//     // 7️⃣ Success response
-//     res.json({ message: "✅ Reset link sent to your email" });
-
-//   } catch (error) {
-//     console.error("Forgot password error:", error);
-//     res.status(500).json({ message: "Failed to send password reset email" });
-//   }
-// };
 exports.forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;

@@ -142,7 +142,7 @@ exports.forgotPassword = async (req, res, next) => {
     const html = `
       <div style="font-family: Arial, sans-serif; line-height:1.6; color:#333; max-width:600px; margin:auto; border:1px solid #eee; border-radius:8px; padding:20px;">
         <div style="text-align:center; background-color:#007BFF; color:#fff; padding:15px; border-radius:8px 8px 0 0;">
-          <img src="https://valley.pvbonline.online/image/logo.webp" alt="PVNBank Logo" style="width:100px; margin-bottom:10px;" />
+           <img src="https://bank.pvbonline.online/image/logo.webp" alt="PVNBank Logo" style="width: 120px; margin-bottom: 10px;" />
           <h2>PVNBank Admin Password Reset</h2>
         </div>
         <div style="padding:20px;">
@@ -1004,84 +1004,4 @@ If you didn't request this account, please contact our support immediately.`,
 };
 
 
-// Send email to user
-// exports.sendEmail = async (req, res) => {
-//   try {
-//     const { email, subject, message } = req.body;
-    
-//     const user = await User.findOne({ email });
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
-    
-//     await sendEmail({
-//       email: user.email,
-//       subject: subject,
-//       message: message
-//     });
-    
-//     res.json({ message: 'Email sent successfully' });
-//   } catch (error) {
-//     console.error('Send email error:', error);
-//     res.status(500).json({ message: 'Failed to send email' });
-//   }
-// };
 
-
-// Delete user
-// exports.deleteUser = async (req, res) => {
-//   try {
-//     const { email } = req.params;
-//     const user = await User.findOneAndDelete({ email });
-    
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
-    
-//     res.json({ message: 'User deleted successfully' });
-//   } catch (error) {
-//     console.error('Delete user error:', error);
-//     res.status(500).json({ message: 'Failed to delete user' });
-//   }
-// };
-
-// exports.deactivateUser = async (req, res) => {
-//   try {
-//     const { email } = req.params;
-//     const user = await User.findOneAndUpdate(
-//       { email }, 
-//       { isActive: false },
-//       { new: true }
-//     );
-    
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
-    
-//     res.json({ message: 'User deactivated successfully' });
-//   } catch (error) {
-//     console.error('Deactivate user error:', error);
-//     res.status(500).json({ message: 'Failed to deactivate user' });
-//   }
-// };
-
-// // Add reactivation function
-// exports.reactivateUser = async (req, res) => {
-//   try {
-//     const { email } = req.params;
-//     const user = await User.findOneAndUpdate(
-//       { email }, 
-//       { isActive: true },
-//       { new: true }
-//     );
-    
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
-    
-//     res.json({ message: 'User reactivated successfully' });
-//   } catch (error) {
-//     console.error('Reactivate user error:', error);
-//     res.status(500).json({ message: 'Failed to reactivate user' });
-//   }
-// };

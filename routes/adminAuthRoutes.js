@@ -86,23 +86,6 @@ router.post("/fund-wallet", protectSuperAdmin, fundAdminWallet);
 
 
 
-router.get("/test-email", async (req, res) => {
-  const sendEmail = require("../utils/sendEmail");
-  try {
-    await sendEmail({
-      email: "youremail@gmail.com", // your real inbox for testing
-      subject: "✅ PVNBank Resend Test",
-      message: "<h2>PVNBank Email System Working!</h2><p>This email was sent via Resend API.</p>"
-    });
-    res.json({ message: "✅ Test email sent successfully" });
-  } catch (error) {
-    console.error("❌ Test email failed:", error);
-    res.status(500).json({ message: "❌ Test email failed", error: error.message });
-  }
-});
-
-
-
 module.exports = router;
 
 

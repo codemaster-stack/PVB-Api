@@ -81,62 +81,6 @@ exports.getUserCard = async (req, res) => {
   }
 };
 
-// Admin fund card directly for user
-// exports.adminFundCard = async (req, res) => {
-//   try {
-//     const { userEmail, amount } = req.body;
-
-//     console.log('💰 Fund card request:', { userEmail, amount });
-
-//     // Validate amount
-//     if (!amount || amount <= 0) {
-//       return res.status(400).json({ message: 'Amount must be greater than 0' });
-//     }
-
-//     // Find user
-//     const user = await User.findOne({ email: userEmail });
-//     console.log('👤 User found:', user ? 'YES' : 'NO');
-    
-//     if (!user) {
-//       return res.status(404).json({ message: 'User not found' });
-//     }
-
-//     // Find user's card
-//     const card = await Card.findOne({ userId: user._id });
-//     console.log('💳 Card found:', card ? 'YES' : 'NO');
-    
-//     if (!card) {
-//       return res.status(404).json({ message: 'User does not have a card' });
-//     }
-
-//     // Check if card is active
-//     if (!card.isActive || card.status !== 'approved') {
-//       return res.status(400).json({ 
-//         message: `Card is not active (Status: ${card.status}, Active: ${card.isActive})` 
-//       });
-//     }
-
-//     // Update balance
-//     const previousBalance = card.cardBalance;
-//     card.cardBalance += parseFloat(amount);
-//     await card.save();
-
-//     console.log('✅ Card funded successfully');
-//     console.log(`Previous: $${previousBalance} → New: $${card.cardBalance}`);
-
-//     res.status(200).json({
-//       message: 'Card funded successfully',
-//       previousBalance: previousBalance,
-//       newBalance: card.cardBalance,
-//       amountAdded: parseFloat(amount)
-//     });
-
-//   } catch (error) {
-//     console.error('❌ Admin fund card error:', error);
-//     res.status(500).json({ message: 'Failed to fund card', error: error.message });
-//   }
-// };
-
 exports.adminFundCard = async (req, res) => {
   try {
     const { userEmail, amount } = req.body;
@@ -507,67 +451,6 @@ exports.fundCard = async (req, res) => {
   }
 };
 
-
-// exports.cardPurchase = async (req, res) => {
-//   try {
-//     const { cardId, pin, amount, items, deliveryAddress } = req.body;
-//     const userId = req.user._id;
-
-//     // Validate inputs
-//     if (!cardId || !pin || !amount || !items || !deliveryAddress) {
-//       return res.status(400).json({ message: 'All fields are required' });
-//     }
-
-//     // Find card
-//     const Card = require('../models/Card');
-//     const card = await Card.findOne({ _id: cardId, userId, status: 'approved' });
-
-//     if (!card) {
-//       return res.status(404).json({ message: 'Card not found or not approved' });
-//     }
-
-//     // Verify PIN
-//     const bcrypt = require('bcrypt');
-//     const isPinValid = await bcrypt.compare(pin, card.transactionPin);
-    
-//     if (!isPinValid) {
-//       return res.status(401).json({ message: 'Incorrect PIN' });
-//     }
-
-//     // Check balance
-//     if ((card.balance || 0) < amount) {
-//       return res.status(400).json({ message: 'Insufficient card balance' });
-//     }
-
-//     // Deduct amount
-//     card.balance = (card.balance || 0) - amount;
-//     await card.save();
-
-//     // Log transaction
-//     const Transaction = require('../models/Transaction');
-//     const transactionId = `MEMART_${Date.now()}`;
-
-//     await Transaction.create({
-//       userId,
-//       type: 'outflow',
-//       transactionId,
-//       amount,
-//       description: `Memart demo purchase - ${items.length} items`,
-//       accountType: 'card',
-//       createdAt: new Date()
-//     });
-
-//     res.json({
-//       message: 'Purchase successful',
-//       transactionId,
-//       newBalance: card.balance
-//     });
-
-//   } catch (error) {
-//     console.error('Card purchase error:', error);
-//     res.status(500).json({ message: 'Purchase failed. Please try again.' });
-//   }
-// };
 
 exports.cardPurchase = async (req, res) => {
   try {

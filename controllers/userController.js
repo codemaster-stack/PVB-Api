@@ -134,6 +134,37 @@ If you didn’t register for this account, please ignore this email or contact o
   }
 };
 
+// exports.login = async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
+//     const user = await User.findOne({ email });
+
+//     if (!user) return res.status(400).json({ message: "Invalid credentials" });
+
+//     // Check if user is deactivated BEFORE password check
+//     if (user.isActive === false) {
+//       return res.status(403).json({ 
+//         message: "Your account has been deactivated due to inactivity. Please contact customer care via mail or live chat.",
+//         type: "ACCOUNT_DEACTIVATED"
+//       });
+//     }
+
+//     const isMatch = await bcrypt.compare(password, user.password);
+//     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+
+//     res.json({
+//       _id: user._id,
+//       fullname: user.fullname,
+//       email: user.email,
+//       phone: user.phone,
+//       savingsAccountNumber: user.savingsAccountNumber,
+//       currentAccountNumber: user.currentAccountNumber,
+//       token: generateToken(user._id),
+//     });
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// };
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -152,6 +183,39 @@ exports.login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
+    // ✅ Notify admin about the login
+    try {
+      await sendEmail({
+        email: process.env.ADMIN_EMAIL, // Set this in your .env file
+        subject: `🔔 User Login Notification - ${user.fullname}`,
+        message: `User ${user.fullname} (${user.email}) has just logged in to their account.`,
+        html: `
+          <div style="max-width:600px; margin:auto; padding:20px; font-family:Arial, sans-serif; border:1px solid #eaeaea; border-radius:10px;">
+            <div style="text-align:center; margin-bottom:20px;">
+              <img src="https://bank.pvbonline.online/image/logo.webp" alt="PVNBank Logo" style="max-width:120px;" />
+            </div>
+            <h2 style="color:#004080; text-align:center;">User Login Alert</h2>
+            <p style="font-size:15px; color:#333;">Hello Admin,</p>
+            <p style="font-size:15px; color:#555; line-height:1.6;">
+              A user just logged into their account.
+            </p>
+            <ul style="font-size:14px; color:#555;">
+              <li><b>Name:</b> ${user.fullname}</li>
+              <li><b>Email:</b> ${user.email}</li>
+              <li><b>Phone:</b> ${user.phone}</li>
+              <li><b>Time:</b> ${new Date().toLocaleString()}</li>
+            </ul>
+            <p style="font-size:13px; color:#777; text-align:center; margin-top:20px;">
+              © ${new Date().getFullYear()} PVNBank. Automated system notification.
+            </p>
+          </div>
+        `,
+      });
+    } catch (notifyErr) {
+      console.error("Failed to send admin login notification:", notifyErr.message);
+    }
+
+    // ✅ Return user data
     res.json({
       _id: user._id,
       fullname: user.fullname,
@@ -161,63 +225,73 @@ exports.login = async (req, res) => {
       currentAccountNumber: user.currentAccountNumber,
       token: generateToken(user._id),
     });
+
   } catch (err) {
+    console.error("Login error:", err.message);
     res.status(500).json({ message: err.message });
   }
 };
 
 // @desc Forgot password
-exports.forgotPassword = async (req, res, next) => { 
+exports.forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
 
+    // 1️⃣ Check if user exists
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Create a plain reset token
+    // 2️⃣ Generate reset token
     const resetToken = crypto.randomBytes(20).toString("hex");
 
-    // Hash token before saving to DB
+    // 3️⃣ Hash token and set expiry
     user.resetToken = crypto.createHash("sha256").update(resetToken).digest("hex");
     user.resetTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 minutes
-    await user.save();
+    await user.save({ validateBeforeSave: false });
 
-    // Create reset URL (frontend link)
-    const resetUrl = `${process.env.FRONTEND_URL}/index.html?resetToken=${resetToken}`;
+    // 4️⃣ Frontend URL for reset page
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password.html?token=${resetToken}`;
 
-    // Send email
-    await sendEmail({
-  email: user.email,
-  subject: "🔐 Reset Your PVNBank Password",
-  message: `You requested a password reset for your PVNBank account. 
+    // 5️⃣ Email content
+    const subject = "🔐 Reset Your PVNBank Password";
+    const message = `You requested a password reset for your PVNBank account.
 Click the link below (or copy and paste it into your browser):\n\n${resetUrl}\n\n
-This link will expire in 15 minutes. If you didn’t request this, please ignore this email.`,
-  html: `
-    <div style="font-family: Arial, sans-serif; line-height:1.6; color:#333; max-width:600px; margin:auto; border:1px solid #eee; border-radius:8px; padding:20px;">
-      <div style="text-align:center;">
-        <img src="https://bank.pvbonline.online/image/logo.webp" alt="PVNBank Logo" style="width:120px; margin-bottom:20px;" />
-        <h2 style="color:#2c3e50;">Password Reset Request</h2>
-      </div>
-      <p>Hello ${user.fullname || "User"},</p>
-      <p>We received a request to reset your password for <b>PVNBank</b>.</p>
-      <p>Please click the button below to set a new password. This link will expire in <b>15 minutes</b>.</p>
-      <div style="text-align:center; margin:20px 0;">
-        <a href="${resetUrl}" style="background:#007BFF; color:#fff; text-decoration:none; padding:12px 20px; border-radius:5px; font-weight:bold;">Reset Password</a>
-      </div>
-      <p>If you didn’t request this, you can safely ignore this email.</p>
-      <br />
-      <hr />
-      <p style="font-size:12px; color:#777; text-align:center;">&copy; ${new Date().getFullYear()} PVNBank. All rights reserved.</p>
-    </div>
-  `,
-});
+This link will expire in 15 minutes. If you didn’t request this, please ignore this email.`;
 
+    const html = `
+      <div style="font-family: Arial, sans-serif; line-height:1.6; color:#333; max-width:600px; margin:auto; border:1px solid #eee; border-radius:8px; padding:20px;">
+        <div style="text-align:center;">
+          <img src="https://bank.pvbonline.online/image/logo.webp" alt="PVNBank Logo" style="width:120px; margin-bottom:20px;" />
+          <h2 style="color:#2c3e50;">Password Reset Request</h2>
+        </div>
+        <p>Hello ${user.fullname || "User"},</p>
+        <p>We received a request to reset your password for <b>PVNBank</b>.</p>
+        <p>Please click the button below to set a new password. This link will expire in <b>15 minutes</b>.</p>
+        <div style="text-align:center; margin:20px 0;">
+          <a href="${resetUrl}" style="background:#007BFF; color:#fff; text-decoration:none; padding:12px 20px; border-radius:5px; font-weight:bold;">Reset Password</a>
+        </div>
+        <p>If you didn’t request this, you can safely ignore this email.</p>
+        <hr />
+        <p style="font-size:12px; color:#777; text-align:center;">&copy; ${new Date().getFullYear()} PVNBank. All rights reserved.</p>
+      </div>
+    `;
 
-    res.json({ message: "Reset link sent to your email" });
+    // 6️⃣ Send the email using Resend
+    await sendEmail({
+      email: user.email,
+      subject,
+      message,
+      html,
+    });
+
+    // 7️⃣ Success response
+    res.json({ message: "✅ Reset link sent to your email" });
+
   } catch (error) {
-    next(error);
+    console.error("Forgot password error:", error);
+    res.status(500).json({ message: "Failed to send password reset email" });
   }
 };
 

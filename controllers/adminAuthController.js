@@ -10,6 +10,8 @@ const ContactMessage = require("../models/ContactMessage");
 const LoanApplication = require("../models/loanApplication");
 const Email = require("../models/Email");
 
+
+
 // Generate JWT
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
@@ -127,53 +129,53 @@ exports.forgotPassword = async (req, res, next) => {
       return res.status(404).json({ message: "Admin not found" });
     }
 
-    // Create a plain reset token
+    // Generate reset token (plain + hashed for DB)
     const resetToken = crypto.randomBytes(20).toString("hex");
-
-    // Hash token before saving to DB
     admin.resetToken = crypto.createHash("sha256").update(resetToken).digest("hex");
     admin.resetTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 minutes
     await admin.save();
 
-    // Create reset URL (frontend link)
+    // Build secure frontend reset URL
     const resetUrl = `${process.env.FRONTEND_URL}/admin-signup.html?resetToken=${resetToken}`;
 
-    // Send email
-    // await sendEmail({
-    //   email: admin.email,
-    //   subject: "PVNBank Admin Password Reset",
-    //   message: `You requested a password reset. Click here to reset your password:\n\n${resetUrl}\n\nThis link will expire in 25 minutes.`,
-    // });
-    await sendEmail({
-  email: admin.email,
-  subject: "🔐 Reset Your PVNBank Password",
-  message: `You requested a password reset. Visit: ${resetUrl}`, // fallback text
-  html: `
-    <div style="font-family: Arial, sans-serif; line-height:1.6; color:#333; max-width:600px; margin:auto; border:1px solid #eee; border-radius:8px; padding:20px;">
-      <div style="text-align:center;">
-        <img src="https://bank.pvbonline.online/image/logo.webp" alt="PVNBank Logo" style="width:120px; margin-bottom:20px;" />
-        <h2 style="color:#2c3e50;">Password Reset Request</h2>
+    // Build branded HTML email
+    const html = `
+      <div style="font-family: Arial, sans-serif; line-height:1.6; color:#333; max-width:600px; margin:auto; border:1px solid #eee; border-radius:8px; padding:20px;">
+        <div style="text-align:center; background-color:#007BFF; color:#fff; padding:15px; border-radius:8px 8px 0 0;">
+          <img src="https://valley.pvbonline.online/image/logo.webp" alt="PVNBank Logo" style="width:100px; margin-bottom:10px;" />
+          <h2>PVNBank Admin Password Reset</h2>
+        </div>
+        <div style="padding:20px;">
+          <p>Hello ${admin.username || "Admin"},</p>
+          <p>We received a request to reset your password for <strong>PVNBank</strong>.</p>
+          <p>Please click the button below to set a new password. This link will expire in <strong>15 minutes</strong>.</p>
+          <div style="text-align:center; margin:30px 0;">
+            <a href="${resetUrl}" style="background:#007BFF; color:#fff; text-decoration:none; padding:12px 25px; border-radius:5px; font-weight:bold; display:inline-block;">
+              Reset Password
+            </a>
+          </div>
+          <p>If you didn’t request this, you can safely ignore this email.</p>
+          <p style="font-size:12px; color:#777; margin-top:30px; border-top:1px solid #eee; padding-top:10px; text-align:center;">
+            &copy; ${new Date().getFullYear()} PVNBank. All rights reserved.
+          </p>
+        </div>
       </div>
-      <p>Hello ${admin.username || "admin"},</p>
-      <p>We received a request to reset your password for <b>PVNBank</b>.</p>
-      <p>Please click the button below to set a new password. This link will expire in <b>15 minutes</b>.</p>
-      <div style="text-align:center; margin:20px 0;">
-        <a href="${resetUrl}" style="background:#007BFF; color:#fff; text-decoration:none; padding:12px 20px; border-radius:5px; font-weight:bold;">Reset Password</a>
-      </div>
-      <p>If you didn’t request this, you can safely ignore this email.</p>
-      <br />
-      <hr />
-      <p style="font-size:12px; color:#777; text-align:center;">&copy; ${new Date().getFullYear()} PVNBank. All rights reserved.</p>
-    </div>
-  `,
-});
+    `;
 
-    res.json({ message: "Reset link sent to your email" });
+    // Send via Resend
+    await sendEmail({
+      email: admin.email,
+      subject: "🔐 Reset Your PVNBank Password",
+      message: `You requested a password reset. Visit: ${resetUrl}`,
+      html,
+    });
+
+    res.json({ message: "✅ Reset link sent to your email" });
   } catch (error) {
+    console.error("Forgot password error:", error);
     next(error);
   }
 };
-
 // @desc    Reset password
 exports.resetPassword = async (req, res, next) => { 
   try {
@@ -605,54 +607,69 @@ exports.transferFunds = async (req, res) => {
 exports.sendEmail = async (req, res) => {
   try {
     const { email, subject, message } = req.body;
-    
+
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
-    
-    // Send the email using your utility
+
+    // ✅ Custom HTML email layout
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; border: 1px solid #eee; border-radius: 8px; overflow: hidden;">
+        <div style="background-color: #007bff; color: white; padding: 15px; text-align: center;">
+          <img src="https://valley.pvbonline.online/image/logo.webp" alt="PVNBank Logo" style="width: 120px; margin-bottom: 10px;" />
+          <h2>PVNBank Notification</h2>
+        </div>
+        <div style="padding: 20px;">
+          <h3 style="color: #333;">${subject}</h3>
+          <p style="font-size: 16px; line-height: 1.6; color: #555;">${message}</p>
+        </div>
+        <div style="background: #f9f9f9; color: #888; padding: 10px; text-align: center; font-size: 12px;">
+          © ${new Date().getFullYear()} PVNBank. All rights reserved.
+        </div>
+      </div>
+    `;
+
+    // ✅ Send email
     await sendEmail({
       email: user.email,
-      subject: subject,
-      message: message
+      subject,
+      html,
     });
-    
-    // Store email in database after successful send
+
+    // ✅ Save to DB
     await Email.create({
       senderType: req.admin.role,
       senderId: req.admin._id,
       senderEmail: req.admin.email,
       recipientEmail: user.email,
       recipientName: user.fullname,
-      subject: subject,
-      message: message,
-      status: "sent"
+      subject,
+      message,
+      status: "sent",
     });
-    
-    res.json({ message: 'Email sent and logged successfully' });
+
+    res.json({ message: "Email sent and logged successfully" });
   } catch (error) {
-    console.error('Send email error:', error);
-    
-    // Log failed email attempt
+    console.error("Send email error:", error);
+
     try {
       await Email.create({
         senderType: req.admin.role,
         senderId: req.admin._id,
         senderEmail: req.admin.email,
         recipientEmail: req.body.email,
-        subject: req.body.subject || 'No subject',
-        message: req.body.message || 'No message',
-        status: "failed"
+        subject: req.body.subject || "No subject",
+        message: req.body.message || "No message",
+        status: "failed",
       });
     } catch (logError) {
-      console.error('Failed to log email error:', logError);
+      console.error("Failed to log email error:", logError);
     }
-    
-    res.status(500).json({ message: 'Failed to send email' });
+
+    res.status(500).json({ message: "Failed to send email" });
   }
 };
-
 
 exports.updateUserProfile = async (req, res) => {
   try {

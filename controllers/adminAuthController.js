@@ -608,16 +608,14 @@ exports.sendEmail = async (req, res) => {
   try {
     const { email, subject, message } = req.body;
 
+    // Check if recipient exists in the User collection
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
 
-    // ✅ Custom HTML email layout
+    // ✅ Custom HTML layout
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; border: 1px solid #eee; border-radius: 8px; overflow: hidden;">
         <div style="background-color: #007bff; color: white; padding: 15px; text-align: center;">
-          <img src="https://valley.pvbonline.online/image/logo.webp" alt="PVNBank Logo" style="width: 120px; margin-bottom: 10px;" />
+          <img src="https://bank.pvbonline.online/image/logo.webp" alt="PVNBank Logo" style="width: 120px; margin-bottom: 10px;" />
           <h2>PVNBank Notification</h2>
         </div>
         <div style="padding: 20px;">
@@ -630,29 +628,30 @@ exports.sendEmail = async (req, res) => {
       </div>
     `;
 
-    // ✅ Send email
+    // ✅ Send the email regardless of user existence
     await sendEmail({
-      email: user.email,
+      email,
       subject,
       html,
     });
 
-    // ✅ Save to DB
+    // ✅ Log to database
     await Email.create({
       senderType: req.admin.role,
       senderId: req.admin._id,
       senderEmail: req.admin.email,
-      recipientEmail: user.email,
-      recipientName: user.fullname,
+      recipientEmail: email,
+      recipientName: user ? user.fullname : "External Recipient",
       subject,
       message,
       status: "sent",
     });
 
-    res.json({ message: "Email sent and logged successfully" });
+    res.json({ message: "✅ Email sent and logged successfully" });
   } catch (error) {
-    console.error("Send email error:", error);
+    console.error("❌ Send email error:", error);
 
+    // Log failed email attempt
     try {
       await Email.create({
         senderType: req.admin.role,
@@ -667,9 +666,10 @@ exports.sendEmail = async (req, res) => {
       console.error("Failed to log email error:", logError);
     }
 
-    res.status(500).json({ message: "Failed to send email" });
+    res.status(500).json({ message: "❌ Failed to send email" });
   }
 };
+
 
 exports.updateUserProfile = async (req, res) => {
   try {

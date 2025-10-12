@@ -94,7 +94,7 @@ router.patch('/transactions/:id/status', protectAdmin, transferController.update
 // Delete transaction
 router.delete('/transactions/:id', protectAdmin, transferController.deleteTransaction);
 
-module.exports = router;
+
 
 
 // ==================== SUPER ADMIN ONLY ROUTES ====================

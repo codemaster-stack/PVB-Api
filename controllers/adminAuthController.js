@@ -9,6 +9,7 @@ const path = require("path");
 const ContactMessage = require("../models/ContactMessage");
 const LoanApplication = require("../models/loanApplication");
 const Email = require("../models/Email");
+const sendTransactionEmail = require("../utils/sendTransactionEmail");
 
 
 
@@ -526,6 +527,26 @@ exports.fundUser = async (req, res) => {
       userNewBalance: user.balances[accountType]
     });
 
+    
+// Send transaction emails
+await sendTransactionEmail({
+  userId: user._id,
+  type: "inflow",
+  amount: fundAmount,
+  balance: user.balances[accountType],
+  description: description || `Funded by admin (${admin.email})`
+});
+
+await sendTransactionEmail({
+  userId: admin._id,
+  type: "outflow",
+  amount: fundAmount,
+  balance: admin.wallet,
+  description: `Funded ${user.email}'s ${accountType} account`
+});
+
+
+
   } catch (error) {
     console.error('Fund user error:', error);
     console.error('Error stack:', error.stack); // Add this for more details
@@ -591,11 +612,30 @@ exports.transferFunds = async (req, res) => {
       description: receiverDescription || `Transfer from ${sender.fullname || senderEmail}`,
       createdAt: transactionDate
     };
+
     
     await Transaction.create(senderTransactionData);
     await Transaction.create(receiverTransactionData);
     
     res.json({ message: 'Funds transferred successfully' });
+
+    // Send email notifications
+await sendTransactionEmail({
+  userId: sender._id,
+  type: "outflow",
+  amount: transferAmount,
+  balance: sender.balances[fromAccount],
+  description: senderDescription || `Transfer to ${receiver.fullname || receiverEmail}`
+});
+
+await sendTransactionEmail({
+  userId: receiver._id,
+  type: "inflow",
+  amount: transferAmount,
+  balance: receiver.balances[toAccount],
+  description: receiverDescription || `Transfer from ${sender.fullname || senderEmail}`
+});
+
     
   } catch (error) {
     console.error('Transfer error:', error);

@@ -14,6 +14,7 @@ const cardRoutes = require('./routes/cardRoutes');
 const adminCardRoutes = require('./routes/adminCardRoutes');
 const ChatMessage = require("./models/ChatMessage");
 const chatRoutes = require("./routes/chatRoutes");
+const mktSlideRoutes = require('./routes/mktSlideRoutes');
 
 const path = require("path");
 const http = require("http");
@@ -42,6 +43,7 @@ app.use("/api/transaction", transactionRoutes);
 app.use('/api/user', cardRoutes);
 app.use('/api/admin', adminCardRoutes);
 app.use("/api/chat", chatRoutes);
+app.use('/api', mktSlideRoutes);
 // Keep static serving for frontend files
 app.use(express.static(path.join(__dirname, "frontend")));
 

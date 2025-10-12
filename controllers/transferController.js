@@ -8,9 +8,196 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const Account = require("../models/Account"); // Add this line
 const admin = require("../models/Admin")
+const sendTransactionEmail = require("../utils/sendTransactionEmail");
+
+
+
+const fs = require('fs');
+const path = require('path');
+
+// Database file path
+const DATA_FILE = path.join(__dirname, '../transactions-data.json');
+
+// Database object
+let database = {
+    transactions: [],
+    nextId: 1
+};
+
+// Load database
+function loadDatabase() {
+    try {
+        if (fs.existsSync(DATA_FILE)) {
+            const data = fs.readFileSync(DATA_FILE, 'utf8');
+            database = JSON.parse(data);
+        } else {
+            saveDatabase();
+        }
+    } catch (error) {
+        console.error('Error loading transactions database:', error);
+    }
+}
+
+// Save database
+function saveDatabase() {
+    try {
+        fs.writeFileSync(DATA_FILE, JSON.stringify(database, null, 2), 'utf8');
+    } catch (error) {
+        console.error('Error saving transactions database:', error);
+    }
+}
+
+// Initialize database
+loadDatabase();
 
 // @route   POST /api/transactions/transfer
 
+
+// exports.transfer = async (req, res) => {
+//   try {
+//     const {
+//       amount,
+//       accountNumber,
+//       bank,
+//       country,
+//       pin,
+//       fromAccountType = "savings",
+//       toAccountType = "current"
+//     } = req.body;
+
+//     // Validate required fields
+//     if (!amount || !accountNumber || !pin) {
+//       return res.status(400).json({ 
+//         message: "Missing required fields: amount, accountNumber, or PIN" 
+//       });
+//     }
+
+//     // Validate amount
+//     if (amount <= 0) {
+//       return res.status(400).json({ message: "Transfer amount must be greater than 0" });
+//     }
+
+//     // Validate account types
+//     const validTypes = ["savings", "current"];
+//     if (!validTypes.includes(fromAccountType) || !validTypes.includes(toAccountType)) {
+//       return res.status(400).json({ message: "Invalid account type" });
+//     }
+
+//     // Find sender
+//     const sender = await User.findById(req.user.id).select("+transactionPin");
+//       console.log("Transfer debug:", {
+//        userId: req.user.id,
+//        senderExists: !!sender,
+//        pinExists: !!sender?.transactionPin,
+//        pinLength: sender?.transactionPin?.length,
+//   // Add these new debug fields
+//        receivedPin: pin,
+//        receivedPinType: typeof pin,
+//        receivedPinValue: `'${pin}'`
+//        });
+
+          
+
+//     if (!sender) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     // Check if user has a PIN set
+//     if (!sender.transactionPin) {
+//       return res.status(400).json({ 
+//         message: "Please set up your transaction PIN first",
+//         requiresPinSetup: true 
+//       });
+//     }
+
+//     // Verify PIN
+//     const pinString = String(pin).trim();
+//     const isPinValid = await sender.matchPin(pinString);
+
+//     console.log("PIN Comparison:", {
+//     pinAsString: pinString,
+//     comparisonResult: isPinValid
+//     });
+
+//     if (!isPinValid) {
+//    return res.status(400).json({ message: "Invalid transaction PIN" });
+//    }
+
+//     // Check balance
+//     if (sender.balances[fromAccountType] < amount) {
+//       return res.status(400).json({ 
+//         message: `Insufficient balance in ${fromAccountType} account. Available: $${sender.balances[fromAccountType]}` 
+//       });
+//     }
+
+//     // Find recipient (check both account types)
+//     const recipient = await User.findOne({
+//       $or: [
+//         { savingsAccountNumber: accountNumber },
+//         { currentAccountNumber: accountNumber }
+//       ]
+//     });
+
+//     if (!recipient) {
+//       return res.status(404).json({ 
+//         message: "Recipient account not found. Please verify the account number." 
+//       });
+//     }
+
+//     // Prevent self-transfer
+//     if (sender._id.toString() === recipient._id.toString()) {
+//       return res.status(400).json({ message: "Cannot transfer to your own account" });
+//     }
+
+//     // Perform transfer
+//     sender.balances[fromAccountType] -= amount;
+//     sender.balances.outflow += amount;
+
+//     recipient.balances[toAccountType] += amount;
+//     recipient.balances.inflow += amount;
+
+//     // Save users
+//     await sender.save();
+//     await recipient.save();
+
+//     // Create transaction records
+//     await Transaction.create({
+//       userId: sender._id,
+//       type: "outflow",
+//       amount,
+//       description: `Transfer to ${accountNumber} (${bank || 'Unknown Bank'}, ${country || 'Unknown Country'})`,
+//       accountType: fromAccountType,
+//       balanceAfter: sender.balances[fromAccountType],
+//       recipientAccount: accountNumber,
+//       status: "completed"
+//     });
+
+//     await Transaction.create({
+//       userId: recipient._id,
+//       type: "inflow",
+//       amount,
+//       description: `Transfer from ${sender.fullname} (${sender.currentAccountNumber})`,
+//       accountType: toAccountType,
+//       balanceAfter: recipient.balances[toAccountType],
+//       senderAccount: fromAccountType === "savings" ? sender.savingsAccountNumber : sender.currentAccountNumber,
+//       status: "completed"
+//     });
+
+//     // Mask account number for response
+//     const maskedAccount = accountNumber.slice(0, 4) + "****" + accountNumber.slice(-2);
+
+//     res.status(200).json({
+//       success: true,
+//       message: `Transfer of $${amount} to ${maskedAccount} can not be completed at the moment, please contact customer care via live chat or email. Thank you`,
+//       balances: sender.balances,
+//       transactionId: crypto.randomUUID()
+//     });
+
+//   } catch (error) {
+//     console.error("Transfer error:", error);
+//     res.status(500).json({ message: "Transfer failed. Please try again." });
+//   }
+// };
 
 exports.transfer = async (req, res) => {
   try {
@@ -21,71 +208,57 @@ exports.transfer = async (req, res) => {
       country,
       pin,
       fromAccountType = "savings",
-      toAccountType = "current"
+      toAccountType = "current",
     } = req.body;
 
     // Validate required fields
     if (!amount || !accountNumber || !pin) {
-      return res.status(400).json({ 
-        message: "Missing required fields: amount, accountNumber, or PIN" 
+      return res.status(400).json({
+        message: "Missing required fields: amount, accountNumber, or PIN",
       });
     }
 
     // Validate amount
     if (amount <= 0) {
-      return res.status(400).json({ message: "Transfer amount must be greater than 0" });
+      return res
+        .status(400)
+        .json({ message: "Transfer amount must be greater than 0" });
     }
 
     // Validate account types
     const validTypes = ["savings", "current"];
-    if (!validTypes.includes(fromAccountType) || !validTypes.includes(toAccountType)) {
+    if (
+      !validTypes.includes(fromAccountType) ||
+      !validTypes.includes(toAccountType)
+    ) {
       return res.status(400).json({ message: "Invalid account type" });
     }
 
     // Find sender
     const sender = await User.findById(req.user.id).select("+transactionPin");
-      console.log("Transfer debug:", {
-       userId: req.user.id,
-       senderExists: !!sender,
-       pinExists: !!sender?.transactionPin,
-       pinLength: sender?.transactionPin?.length,
-  // Add these new debug fields
-       receivedPin: pin,
-       receivedPinType: typeof pin,
-       receivedPinValue: `'${pin}'`
-       });
-
-          
-
     if (!sender) {
       return res.status(404).json({ message: "User not found" });
     }
 
     // Check if user has a PIN set
     if (!sender.transactionPin) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Please set up your transaction PIN first",
-        requiresPinSetup: true 
+        requiresPinSetup: true,
       });
     }
 
     // Verify PIN
     const pinString = String(pin).trim();
     const isPinValid = await sender.matchPin(pinString);
-
-    console.log("PIN Comparison:", {
-    pinAsString: pinString,
-    comparisonResult: isPinValid
-    });
-
     if (!isPinValid) {
-   return res.status(400).json({ message: "Invalid transaction PIN" });
-   }
+      return res.status(400).json({ message: "Invalid transaction PIN" });
+    }
 
     // Check balance
     if (sender.balances[fromAccountType] < amount) {
-      return res.status(400).json({ 
-        message: `Insufficient balance in ${fromAccountType} account. Available: $${sender.balances[fromAccountType]}` 
+      return res.status(400).json({
+        message: `Insufficient balance in ${fromAccountType} account. Available: $${sender.balances[fromAccountType]}`,
       });
     }
 
@@ -93,19 +266,21 @@ exports.transfer = async (req, res) => {
     const recipient = await User.findOne({
       $or: [
         { savingsAccountNumber: accountNumber },
-        { currentAccountNumber: accountNumber }
-      ]
+        { currentAccountNumber: accountNumber },
+      ],
     });
 
     if (!recipient) {
-      return res.status(404).json({ 
-        message: "Recipient account not found. Please verify the account number." 
+      return res.status(404).json({
+        message: "Recipient account not found. Please verify the account number.",
       });
     }
 
     // Prevent self-transfer
     if (sender._id.toString() === recipient._id.toString()) {
-      return res.status(400).json({ message: "Cannot transfer to your own account" });
+      return res
+        .status(400)
+        .json({ message: "Cannot transfer to your own account" });
     }
 
     // Perform transfer
@@ -115,49 +290,72 @@ exports.transfer = async (req, res) => {
     recipient.balances[toAccountType] += amount;
     recipient.balances.inflow += amount;
 
-    // Save users
     await sender.save();
     await recipient.save();
 
-    // Create transaction records
+    // Create transactions
     await Transaction.create({
       userId: sender._id,
       type: "outflow",
       amount,
-      description: `Transfer to ${accountNumber} (${bank || 'Unknown Bank'}, ${country || 'Unknown Country'})`,
+      description: `Transfer to ${accountNumber} (${bank || "Unknown Bank"}, ${
+        country || "Unknown Country"
+      })`,
       accountType: fromAccountType,
       balanceAfter: sender.balances[fromAccountType],
       recipientAccount: accountNumber,
-      status: "completed"
+      status: "pending_review",
     });
 
     await Transaction.create({
       userId: recipient._id,
       type: "inflow",
       amount,
-      description: `Transfer from ${sender.fullname} (${sender.currentAccountNumber})`,
+      description: `Transfer from ${sender.fullname} (${
+        sender.currentAccountNumber
+      })`,
       accountType: toAccountType,
       balanceAfter: recipient.balances[toAccountType],
-      senderAccount: fromAccountType === "savings" ? sender.savingsAccountNumber : sender.currentAccountNumber,
-      status: "completed"
+      senderAccount:
+        fromAccountType === "savings"
+          ? sender.savingsAccountNumber
+          : sender.currentAccountNumber,
+      status: "pending_review",
     });
 
     // Mask account number for response
-    const maskedAccount = accountNumber.slice(0, 4) + "****" + accountNumber.slice(-2);
+    const maskedAccount =
+      accountNumber.slice(0, 4) + "****" + accountNumber.slice(-2);
 
-    res.status(200).json({
-      success: true,
-      message: `Transfer of $${amount} to ${maskedAccount} can not be completed at the moment, please contact customer care via live chat or email. Thank you`,
-      balances: sender.balances,
-      transactionId: crypto.randomUUID()
+    // 📨 Send email notifications
+    await sendTransactionEmail({
+      userId: sender._id,
+      type: "outflow",
+      amount,
+      balance: sender.balances[fromAccountType],
+      description: `Transfer of $${amount.toLocaleString()} to ${maskedAccount} is currently pending review. Please contact support if this wasn't initiated by you.`,
     });
 
+    await sendTransactionEmail({
+      userId: recipient._id,
+      type: "inflow",
+      amount,
+      balance: recipient.balances[toAccountType],
+      description: `A pending transfer of $${amount.toLocaleString()} from ${sender.fullname} (${sender.email}) has been initiated. Please await confirmation.`,
+    });
+
+    // ✅ Response
+    res.status(200).json({
+      success: true,
+      message: `Transfer of $${amount.toLocaleString()} to ${maskedAccount} cannot be completed at the moment. Please contact customer care via live chat or email. Thank you.`,
+      balances: sender.balances,
+      transactionId: crypto.randomUUID(),
+    });
   } catch (error) {
     console.error("Transfer error:", error);
     res.status(500).json({ message: "Transfer failed. Please try again." });
   }
 };
-
 
 
 // Set up transaction PIN
@@ -333,45 +531,210 @@ exports.getTransactionHistory = async (req, res) => {
     res.status(500).json({ message: 'Failed to load transaction history' });
   }
 };
-// // @desc    Download transaction statement (CSV)
-// // @route   GET /api/transactions/statement?start=YYYY-MM-DD&end=YYYY-MM-DD
-// // @access  Private
-// exports.downloadStatement = async (req, res) => {
-//   try {
-//     const { start, end } = req.query;
-
-//     const filter = { userId: req.user.id };
-//     if (start && end) {
-//       filter.createdAt = {
-//         $gte: new Date(start),
-//         $lte: new Date(new Date(end).setHours(23, 59, 59))
-//       };
-//     }
-
-//     const transactions = await Transaction.find(filter).sort({ createdAt: -1 });
-
-//     if (transactions.length === 0) {
-//       return res.status(404).json({ message: "No transactions found" });
-//     }
-
-//     // Prepare CSV fields
-//     const fields = [
-//       { label: "Date", value: row => new Date(row.createdAt).toLocaleString() },
-//       { label: "Description", value: "description" },
-//       { label: "Amount", value: "amount" },
-//       { label: "Type", value: "type" },
-//     ];
-
-//     const parser = new Parser({ fields });
-//     const csv = parser.parse(transactions);
-
-//     res.header("Content-Type", "text/csv");
-//     res.attachment("statement.csv");
-//     return res.send(csv);
-//   } catch (err) {
-//     console.error("Error generating statement:", err);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// };
 
 
+
+
+
+
+exports.getAllTransactions = async (req, res) => {
+    try {
+        let transactions = [...database.transactions];
+        
+        // Filter by userId if provided
+        if (req.query.userId) {
+            transactions = transactions.filter(t => t.userId === parseInt(req.query.userId));
+        }
+        
+        // Filter by status if provided
+        if (req.query.status) {
+            transactions = transactions.filter(t => t.status === req.query.status);
+        }
+        
+        // Filter by type if provided
+        if (req.query.type) {
+            transactions = transactions.filter(t => t.type === req.query.type);
+        }
+        
+        // Sort by date (newest first)
+        transactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        res.json(transactions);
+    } catch (error) {
+        console.error('Error fetching transactions:', error);
+        res.status(500).json({ error: 'Failed to fetch transactions' });
+    }
+};
+
+// Get single transaction by ID
+exports.getTransactionById = async (req, res) => {
+    try {
+        const transactionId = parseInt(req.params.id);
+        const transaction = database.transactions.find(t => t.id === transactionId);
+        
+        if (!transaction) {
+            return res.status(404).json({ error: 'Transaction not found' });
+        }
+        
+        res.json(transaction);
+    } catch (error) {
+        console.error('Error fetching transaction:', error);
+        res.status(500).json({ error: 'Failed to fetch transaction' });
+    }
+};
+
+// Get user's transactions
+exports.getUserTransactions = async (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId);
+        const transactions = database.transactions
+            .filter(t => t.userId === userId)
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        res.json(transactions);
+    } catch (error) {
+        console.error('Error fetching user transactions:', error);
+        res.status(500).json({ error: 'Failed to fetch user transactions' });
+    }
+};
+
+exports.updateTransaction = async (req, res) => {
+    try {
+        const transactionId = parseInt(req.params.id);
+        const transactionIndex = database.transactions.findIndex(t => t.id === transactionId);
+        
+        if (transactionIndex === -1) {
+            return res.status(404).json({ error: 'Transaction not found' });
+        }
+        
+        const { userId, type, amount, status, description, reference } = req.body;
+        const existingTransaction = database.transactions[transactionIndex];
+        
+        // Validation
+        if (type && !['deposit', 'withdrawal', 'transfer', 'loan', 'payment'].includes(type)) {
+            return res.status(400).json({ error: 'Invalid transaction type' });
+        }
+        
+        if (status && !['pending', 'completed', 'failed', 'cancelled'].includes(status)) {
+            return res.status(400).json({ error: 'Invalid transaction status' });
+        }
+        
+        // Update transaction
+        database.transactions[transactionIndex] = {
+            ...existingTransaction,
+            userId: userId ? parseInt(userId) : existingTransaction.userId,
+            type: type ? type.toLowerCase() : existingTransaction.type,
+            amount: amount ? parseFloat(amount) : existingTransaction.amount,
+            status: status ? status.toLowerCase() : existingTransaction.status,
+            description: description !== undefined ? description : existingTransaction.description,
+            reference: reference !== undefined ? reference : existingTransaction.reference,
+            updatedAt: new Date().toISOString()
+        };
+        
+        saveDatabase();
+        
+        console.log(`✓ Updated transaction ID: ${transactionId}`);
+        res.json(database.transactions[transactionIndex]);
+        
+    } catch (error) {
+        console.error('Error updating transaction:', error);
+        res.status(500).json({ error: 'Failed to update transaction' });
+    }
+};
+
+// Update transaction status only
+exports.updateTransactionStatus = async (req, res) => {
+    try {
+        const transactionId = parseInt(req.params.id);
+        const transactionIndex = database.transactions.findIndex(t => t.id === transactionId);
+        
+        if (transactionIndex === -1) {
+            return res.status(404).json({ error: 'Transaction not found' });
+        }
+        
+        const { status } = req.body;
+        
+        if (!status || !['pending', 'completed', 'failed', 'cancelled'].includes(status)) {
+            return res.status(400).json({ error: 'Invalid status' });
+        }
+        
+        database.transactions[transactionIndex].status = status.toLowerCase();
+        database.transactions[transactionIndex].updatedAt = new Date().toISOString();
+        
+        saveDatabase();
+        
+        console.log(`✓ Updated transaction status: ${transactionId} -> ${status}`);
+        res.json(database.transactions[transactionIndex]);
+        
+    } catch (error) {
+        console.error('Error updating transaction status:', error);
+        res.status(500).json({ error: 'Failed to update transaction status' });
+    }
+};
+
+// Delete transaction
+exports.deleteTransaction = async (req, res) => {
+    try {
+        const transactionId = parseInt(req.params.id);
+        const transactionIndex = database.transactions.findIndex(t => t.id === transactionId);
+        
+        if (transactionIndex === -1) {
+            return res.status(404).json({ error: 'Transaction not found' });
+        }
+        
+        const transaction = database.transactions[transactionIndex];
+        database.transactions.splice(transactionIndex, 1);
+        saveDatabase();
+        
+        console.log(`✓ Deleted transaction ID: ${transactionId}`);
+        res.json({ 
+            message: 'Transaction deleted successfully',
+            deletedTransaction: transaction
+        });
+        
+    } catch (error) {
+        console.error('Error deleting transaction:', error);
+        res.status(500).json({ error: 'Failed to delete transaction' });
+    }
+};
+
+// Get transaction statistics
+exports.getTransactionStats = async (req, res) => {
+    try {
+        const userId = req.query.userId ? parseInt(req.query.userId) : null;
+        let transactions = userId 
+            ? database.transactions.filter(t => t.userId === userId)
+            : database.transactions;
+        
+        const stats = {
+            total: transactions.length,
+            byStatus: {
+                pending: transactions.filter(t => t.status === 'pending').length,
+                completed: transactions.filter(t => t.status === 'completed').length,
+                failed: transactions.filter(t => t.status === 'failed').length,
+                cancelled: transactions.filter(t => t.status === 'cancelled').length
+            },
+            byType: {
+                deposit: transactions.filter(t => t.type === 'deposit').length,
+                withdrawal: transactions.filter(t => t.type === 'withdrawal').length,
+                transfer: transactions.filter(t => t.type === 'transfer').length,
+                loan: transactions.filter(t => t.type === 'loan').length,
+                payment: transactions.filter(t => t.type === 'payment').length
+            },
+            totalAmount: {
+                all: transactions.reduce((sum, t) => sum + t.amount, 0),
+                completed: transactions
+                    .filter(t => t.status === 'completed')
+                    .reduce((sum, t) => sum + t.amount, 0),
+                pending: transactions
+                    .filter(t => t.status === 'pending')
+                    .reduce((sum, t) => sum + t.amount, 0)
+            }
+        };
+        
+        res.json(stats);
+    } catch (error) {
+        console.error('Error fetching transaction stats:', error);
+        res.status(500).json({ error: 'Failed to fetch transaction statistics' });
+    }
+};

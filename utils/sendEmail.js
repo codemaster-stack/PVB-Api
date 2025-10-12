@@ -1,5 +1,4 @@
 // utils/sendEmail.js
-// utils/sendEmail.js
 const resend = require("../config/email");
 
 /**
@@ -32,26 +31,4 @@ const sendEmail = async ({ email, subject, message, html }) => {
 module.exports = sendEmail;
 
 
-
-
-// // utils/sendMail.js
-// const resend = require("../config/email");
-
-// const sendEmail = async ({ email, subject, message, html }) => {
-//   try {
-//     await resend.emails.send({
-//       from: "PVNBank <support@pvbonline.online>", // Use your verified sender
-//       to: email,
-//       subject,
-//       html: html || message,
-//     });
-
-//     console.log(`✅ Email sent to ${email}`);
-//   } catch (error) {
-//     console.error("❌ Email sending error:", error);
-//     throw new Error("Email could not be sent");
-//   }
-// };
-
-// module.exports = sendEmail;
 

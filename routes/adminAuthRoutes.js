@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const { protectAdmin, protectSuperAdmin } = require("../middleware/adminMiddleware");
-const upload = require('../config/cloudinaryConfig'); // Import new config
-
+const {profileUpload} = require('../config/cloudinaryConfig'); // Import new config
+const transferController = require('../controllers/transferController');
 
 router.get("/dashboard", protectAdmin, (req, res) => {
   res.json({ message: `Welcome Admin ${req.admin.username}` });
@@ -63,10 +63,39 @@ router.put('/users/:email/reactivate', protectAdmin, reactivateUser);
 router.post('/fund-user', protectAdmin, fundUser);
 router.post('/transfer-funds', protectAdmin, transferFunds);
 router.post('/send-email', protectAdmin, sendEmail);
-router.put('/users/:email/profile', protectAdmin, upload.single('profilePic'), updateUserProfile);
+// router.put('/users/:email/profile', protectAdmin, upload.single('profilePic'), updateUserProfile);
+router.put('/users/:email/profile', protectAdmin, profileUpload.single('profilePic'), updateUserProfile);
 router.get("/active-users", getActiveUsers);
 router.get("/wallet", protectAdmin, getAdminWallet);
 router.put("/review/:loanId", protectAdmin, reviewLoanApplication);
+
+
+
+router.get('/transactions/stats', protectAdmin, transferController.getTransactionStats);
+
+// Get all transactions (with optional filters)
+router.get('/transactions', protectAdmin, transferController.getAllTransactions);
+
+// Get user's transactions
+router.get('/transactions/user/:userId', protectAdmin, transferController.getUserTransactions);
+
+// Get single transaction by ID
+router.get('/transactions/:id', protectAdmin, transferController.getTransactionById);
+
+// Create new transaction
+// router.post('/transactions', transactionsController.createTransaction);
+
+// Update transaction
+router.put('/transactions/:id', protectAdmin, transferController.updateTransaction);
+
+// Update transaction status only
+router.patch('/transactions/:id/status', protectAdmin, transferController.updateTransactionStatus);
+
+// Delete transaction
+router.delete('/transactions/:id', protectAdmin, transferController.deleteTransaction);
+
+module.exports = router;
+
 
 // ==================== SUPER ADMIN ONLY ROUTES ====================
 

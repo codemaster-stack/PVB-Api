@@ -2,7 +2,8 @@ const express = require("express");
 const upload = require('../config/cloudinaryConfig'); // Import new config
 const router = express.Router();
 const { protect } = require("../middleware/auth");
-const {getMyCards, fundCard} = require("../controllers/cardController")
+const {getMyCards, fundCard, forgotCardPin, resetCardPin} = require("../controllers/cardController")
+const {profileUpload} = require('../config/cloudinaryConfig');
 
 const {
   register,
@@ -40,13 +41,17 @@ router.get("/my-cards", protect, getMyCards)
 router.post('/card-to-account', protect, cardToAccount);
 router.get('/transactions/summary', protect, getTransactionsWithSummary); // Statement page
 router.get('/download-statement', protect, downloadStatement);
+router.post("/card-reset-pin", protect, forgotCardPin);
+router.post("/reset-card-pin", resetCardPin);
 
 router.get('/check-pin-status', protect, checkPinStatus);
 
 // User info & profile picture
 router.get("/me", getMe);
 // router.put("/profile-picture", upload.single("profilePic"), updateProfilePicture);
-router.put('/profile-picture', protect, upload.single('profilePic'), updateProfilePicture);
+// router.put('/profile-picture', protect, upload.single('profilePic'), updateProfilePicture);
+router.put('/profile-picture', protect, profileUpload.single('profilePic'), updateProfilePicture);
+
 
 
 

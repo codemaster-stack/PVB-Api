@@ -5,7 +5,14 @@ const Transaction = require('../models/Transaction');
 const Account = require('../models/Account');
 const bcrypt = require('bcryptjs'); 
 const Admin = require('../models/Admin');
+const crypto = require('crypto');
+const sendEmail = require("../utils/sendEmail");
 
+
+// Generate token helper
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
+};
 
 
 
@@ -384,9 +391,9 @@ exports.getMyCards = async (req, res) => {
       let statusMessage = null;
 
       if (!card.isApproved) {
-        statusMessage = 'Your card is pending admin approval.';
+        statusMessage = "Your card is not yet approved by the Bank.";
       } else if (!card.isActive) {
-        statusMessage = 'Your card has been deactivated, please contact customer care.';
+        statusMessage = "Your card has been deactivated, please contact customer care.";
       }
 
       return {
@@ -398,7 +405,7 @@ exports.getMyCards = async (req, res) => {
         expiryDate: card.expiryDate,
         cardBalance: card.cardBalance ?? 0,
         isActive: card.isActive,
-        isApproved: card.isApproved ?? false,
+        isApproved: card.isApproved,
         statusMessage
       };
     });
@@ -532,4 +539,102 @@ exports.cardPurchase = async (req, res) => {
       error: error.message
     });
   }
+};
+
+
+
+exports.forgotCardPin = async (req, res) => {
+  try {
+    const { cardNumber } = req.body;
+    const userId = req.user._id;
+
+    const card = await Card.findOne({ userId, cardNumber });
+    if (!card) return res.status(404).json({ message: "Card not found" });
+
+    // Generate secure reset token
+    const resetToken = crypto.randomBytes(20).toString("hex");
+
+    // Hash token and set expiry (15 mins)
+    card.resetToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+    card.resetTokenExpiry = Date.now() + 15 * 60 * 1000; 
+    await card.save({ validateBeforeSave: false });
+
+    // Reset link
+    const resetUrl = `${process.env.FRONTEND_URL}/memert.html?resetCardPinToken=${resetToken}&card=${cardNumber}`;
+
+
+    const html = `
+      <div style="max-width:600px; margin:auto; padding:20px; font-family:Arial, sans-serif; border:1px solid #eaeaea; border-radius:10px;">
+        <div style="text-align:center; margin-bottom:20px;">
+          <img src="https://bank.pvbonline.online/image/logo.webp" alt="Pauls Valley Bank" style="max-width:150px; height:auto;" />
+        </div>
+        <h2 style="color:#004080; text-align:center;">Reset Your Card PIN</h2>
+        <p style="font-size:16px; color:#333;">Hello <b>${req.user.fullname || "User"}</b>,</p>
+        <p style="font-size:15px; color:#555; line-height:1.6;">
+          We received a request to reset the PIN for your card ending with <b>${cardNumber.slice(-4)}</b>.
+        </p>
+        <p style="font-size:15px; color:#555; line-height:1.6;">
+          Click the button below to set a new PIN. This link will expire in <b>15 minutes</b>.
+        </p>
+        <div style="text-align:center; margin:30px 0;">
+          <a href="${resetUrl}" 
+             style="background-color:#004080; color:#fff; padding:12px 24px; text-decoration:none; border-radius:5px; font-weight:bold;">
+            Reset Card PIN
+          </a>
+        </div>
+        <p style="font-size:14px; color:#777; text-align:center;">
+          If you did not request this, you can safely ignore this email.
+        </p>
+        <hr style="margin:20px 0; border:none; border-top:1px solid #eee;" />
+        <p style="font-size:12px; color:#aaa; text-align:center;">
+          © ${new Date().getFullYear()} Pauls Valley Bank. All rights reserved. <br/>
+          This is an automated email, please do not reply.
+        </p>
+      </div>
+    `;
+
+    await sendEmail({
+      email: req.user.email,
+      subject: "🔐 Reset Your Card PIN - Pauls Valley Bank",
+      html,
+    });
+
+    res.status(200).json({ message: "✅ PIN reset link sent to your email" });
+
+  } catch (error) {
+    console.error("Forgot Card PIN error:", error);
+    res.status(500).json({ message: "Failed to send PIN reset email" });
+  }
+};
+// ====== Reset PIN ======
+exports.resetCardPin = async (req, res) => {
+    try {
+        const { cardNumber, newPin, token } = req.body;
+        const userId = req.user._id;
+
+        if (!newPin || newPin.length !== 4) {
+            return res.status(400).json({ message: 'Transaction PIN must be 4 digits' });
+        }
+
+        const card = await Card.findOne({
+            userId,
+            cardNumber,
+            resetToken: token,
+            resetTokenExpiry: { $gt: Date.now() } // token valid
+        });
+
+        if (!card) return res.status(400).json({ message: 'Invalid or expired reset token' });
+
+        // Update PIN and remove reset token
+        card.transactionPin = newPin;
+        card.resetToken = undefined;
+        card.resetTokenExpiry = undefined;
+        await card.save();
+
+        res.json({ message: '✅ PIN has been reset successfully!' });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to reset PIN' });
+    }
 };

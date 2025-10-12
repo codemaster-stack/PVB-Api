@@ -529,9 +529,26 @@ exports.fundUser = async (req, res) => {
 
     
 // Send transaction emails
+// await sendTransactionEmail({
+//   userId: user._id,
+//   type: "inflow",
+//   amount: fundAmount,
+//   balance: user.balances[accountType],
+//   description: description || `Funded by admin (${admin.email})`
+// });
+
+// await sendTransactionEmail({
+//   userId: admin._id,
+//   type: "outflow",
+//   amount: fundAmount,
+//   balance: admin.wallet,
+//   description: `Funded ${user.email}'s ${accountType} account`
+// });
+
+// Send transaction emails
 await sendTransactionEmail({
   userId: user._id,
-  type: "inflow",
+  type: "credit",  // ✅ Changed from "inflow"
   amount: fundAmount,
   balance: user.balances[accountType],
   description: description || `Funded by admin (${admin.email})`
@@ -539,13 +556,11 @@ await sendTransactionEmail({
 
 await sendTransactionEmail({
   userId: admin._id,
-  type: "outflow",
+  type: "debit",  // ✅ Changed from "outflow"
   amount: fundAmount,
   balance: admin.wallet,
   description: `Funded ${user.email}'s ${accountType} account`
 });
-
-
 
   } catch (error) {
     console.error('Fund user error:', error);

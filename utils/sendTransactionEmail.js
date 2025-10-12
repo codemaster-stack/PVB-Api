@@ -3,7 +3,7 @@ const sendEmail = require("./sendEmail");
 const User = require("../models/User");
 
 const BANK_NAME = "Pauls Valley Bank";
-const BANK_LOGO_URL = "https://bank.pvbonline.online/assets/logo.webp";
+const BANK_LOGO_URL = "https://bank.pvbonline.online/image/logo.webp";
 
 /**
  * Send transaction alert email

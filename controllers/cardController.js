@@ -418,17 +418,80 @@ exports.getMyCards = async (req, res) => {
 };
 
 // controllers/cardController.js
+// exports.fundCard = async (req, res) => {
+//   try {
+//     const { cardId, amount, source } = req.body; // source = "savings" or "current"
+//     const amountNum = Number(amount);
+
+//     if (!amountNum || isNaN(amountNum) || amountNum <= 0) {
+//       return res.status(400).json({ message: "Invalid amount" });
+//     }
+
+//     const user = req.user;
+
+//     const card = await Card.findOne({ _id: cardId, userId: user._id });
+//     if (!card) {
+//       return res.status(404).json({ message: "Card not found" });
+//     }
+
+//     // Default to "current" if not provided
+//     const fundSource = source || "current";
+
+//     if (!["savings", "current", "loan"].includes(fundSource)) {
+//       return res.status(400).json({ message: "Invalid source account" });
+//     }
+
+//     if (Number(user.balances[fundSource]) < amountNum) {
+//       return res.status(400).json({ message: `Insufficient funds in ${fundSource}` });
+//     }
+
+//     // Deduct from source & fund card
+//     user.balances[fundSource] = Number(user.balances[fundSource]) - amountNum;
+//     card.cardBalance = Number(card.cardBalance) + amountNum;
+
+//     await user.save();
+//     await card.save();
+
+//     res.json({
+//       message: `Card funded successfully from ${fundSource}`,
+//       card,
+//       remainingBalance: user.balances[fundSource],
+//     });
+//   } catch (err) {
+//     console.error("❌ Fund Card Error:", err);
+//     res.status(500).json({ message: "Error funding card", error: err.message });
+//   }
+// };
 exports.fundCard = async (req, res) => {
   try {
-    const { cardId, amount, source } = req.body; // source = "savings" or "current"
+    const { cardId, amount, source, pin } = req.body; // ← Add 'pin' here
     const amountNum = Number(amount);
 
+    // Validate amount
     if (!amountNum || isNaN(amountNum) || amountNum <= 0) {
       return res.status(400).json({ message: "Invalid amount" });
     }
 
+    // Validate PIN is provided
+    if (!pin) {
+      return res.status(400).json({ message: "PIN is required" });
+    }
+
     const user = req.user;
 
+    // ✅ VERIFY TRANSFER PIN
+    if (!user.transferPin) {
+      return res.status(400).json({ message: "Please create a transfer PIN first" });
+    }
+
+    const bcrypt = require('bcryptjs'); // Make sure bcrypt is imported at the top
+    const isPinValid = await bcrypt.compare(pin, user.transferPin);
+    
+    if (!isPinValid) {
+      return res.status(401).json({ message: "Invalid PIN. Transaction denied." });
+    }
+
+    // Find card
     const card = await Card.findOne({ _id: cardId, userId: user._id });
     if (!card) {
       return res.status(404).json({ message: "Card not found" });
@@ -462,7 +525,6 @@ exports.fundCard = async (req, res) => {
     res.status(500).json({ message: "Error funding card", error: err.message });
   }
 };
-
 
 exports.cardPurchase = async (req, res) => {
   try {

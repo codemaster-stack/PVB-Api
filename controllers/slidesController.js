@@ -130,9 +130,6 @@ exports.createSlide = async (req, res) => {
         
         // Validation
         if (!title || !subtitle) {
-            if (req.file) {
-                deleteFile(req.file.path);
-            }
             return res.status(400).json({ error: 'Title and subtitle are required' });
         }
         
@@ -145,7 +142,8 @@ exports.createSlide = async (req, res) => {
             slideClass: slideClass || 'mk-slide3',
             sortOrder: parseInt(sortOrder) || 0,
             isActive: isActive === 'true' || isActive === true,
-            backgroundImage: req.file ? `/uploads/${req.file.filename}` : null,
+            // ✅ CHANGED: Use req.file.path for Cloudinary URL
+            backgroundImage: req.file ? req.file.path : null,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
@@ -158,13 +156,9 @@ exports.createSlide = async (req, res) => {
         
     } catch (error) {
         console.error('Error creating slide:', error);
-        if (req.file) {
-            deleteFile(req.file.path);
-        }
         res.status(500).json({ error: 'Failed to create slide' });
     }
 };
-
 // Update slide
 exports.updateSlide = async (req, res) => {
     try {
@@ -172,9 +166,6 @@ exports.updateSlide = async (req, res) => {
         const slideIndex = database.slides.findIndex(s => s.id === slideId);
         
         if (slideIndex === -1) {
-            if (req.file) {
-                deleteFile(req.file.path);
-            }
             return res.status(404).json({ error: 'Slide not found' });
         }
         
@@ -183,21 +174,18 @@ exports.updateSlide = async (req, res) => {
         
         // Validation
         if (!title || !subtitle) {
-            if (req.file) {
-                deleteFile(req.file.path);
-            }
             return res.status(400).json({ error: 'Title and subtitle are required' });
         }
         
-        // Handle image replacement
+        // ✅ CHANGED: Handle image replacement for Cloudinary
         let backgroundImage = existingSlide.backgroundImage;
         if (req.file) {
-            // Delete old image if it exists
+            // Delete old image from Cloudinary if it exists
             if (existingSlide.backgroundImage) {
-                const oldImagePath = path.join(__dirname, '..', existingSlide.backgroundImage);
-                deleteFile(oldImagePath);
+                await deleteCloudinaryImage(existingSlide.backgroundImage);
             }
-            backgroundImage = `/uploads/${req.file.filename}`;
+            // Use Cloudinary URL from req.file.path
+            backgroundImage = req.file.path;
         }
         
         // Update slide
@@ -221,13 +209,9 @@ exports.updateSlide = async (req, res) => {
         
     } catch (error) {
         console.error('Error updating slide:', error);
-        if (req.file) {
-            deleteFile(req.file.path);
-        }
         res.status(500).json({ error: 'Failed to update slide' });
     }
 };
-
 // Toggle slide active status
 exports.toggleSlideStatus = async (req, res) => {
     try {

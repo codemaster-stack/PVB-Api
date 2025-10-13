@@ -620,15 +620,20 @@ exports.transferFunds = async (req, res) => {
     await Transaction.create(senderTransactionData);
     await Transaction.create(receiverTransactionData);
 
-    // const totalBalance = (receiver.balances.savings || 0) + 
-    //                  (receiver.balances.current || 0) + 
-    //                  (receiver.balances.loan || 0);
-    // Send email notifications
+    // ✅ Calculate total balance (sum of all account types)
+    const senderTotalBalance = (sender.balances.savings || 0) + 
+                               (sender.balances.current || 0) + 
+                               (sender.balances.fixed || 0);
+    
+    const receiverTotalBalance = (receiver.balances.savings || 0) + 
+                                 (receiver.balances.current || 0) + 
+                                 (receiver.balances.fixed || 0);
+
     await sendTransactionEmail({
       userId: sender._id,
       type: "debit",
       amount: transferAmount,
-      balance: sender.balances[fromAccount],
+      balance: senderTotalBalance, // ✅ Total balance instead of specific account
       description: senderDescription || `Transfer to ${receiver.fullname || receiverEmail}`
     });
 
@@ -636,7 +641,7 @@ exports.transferFunds = async (req, res) => {
       userId: receiver._id,
       type: "credit",
       amount: transferAmount,
-      balance: receiver.balances[toAccount],
+      balance: receiverTotalBalance, // ✅ Total balance instead of specific account
       description: receiverDescription || `Transfer from ${sender.fullname || senderEmail}`
     });
     

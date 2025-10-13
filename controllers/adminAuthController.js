@@ -620,9 +620,9 @@ exports.transferFunds = async (req, res) => {
     await Transaction.create(senderTransactionData);
     await Transaction.create(receiverTransactionData);
 
-    const totalBalance = (receiver.balances.savings || 0) + 
-                     (receiver.balances.current || 0) + 
-                     (receiver.balances.loan || 0);
+    // const totalBalance = (receiver.balances.savings || 0) + 
+    //                  (receiver.balances.current || 0) + 
+    //                  (receiver.balances.loan || 0);
     // Send email notifications
     await sendTransactionEmail({
       userId: sender._id,

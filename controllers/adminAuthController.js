@@ -527,23 +527,6 @@ exports.fundUser = async (req, res) => {
       userNewBalance: user.balances[accountType]
     });
 
-// Send transaction emails
-// await sendTransactionEmail({
-//   userId: user._id,
-//   type: "credit",  // ✅ Changed from "inflow"
-//   amount: fundAmount,
-//   balance: user.balances[accountType],
-//   description: description || `Funded by admin (${admin.email})`
-// });
-
-// await sendTransactionEmail({
-//   userId: admin._id,
-//   type: "debit",  // ✅ Changed from "outflow"
-//   amount: fundAmount,
-//   balance: admin.wallet,
-//   description: `Funded ${user.email}'s ${accountType} account`
-// });
-// Calculate total balance across all accounts
 const totalBalance = (user.balances.savings || 0) + 
                      (user.balances.current || 0) + 
                      (user.balances.loan || 0);
@@ -584,8 +567,8 @@ exports.transferFunds = async (req, res) => {
       amount, 
       fromAccount, 
       toAccount, 
-      senderDescription,    // New field
-      receiverDescription,  // New field
+      senderDescription,
+      receiverDescription,
       date 
     } = req.body;
     
@@ -613,67 +596,51 @@ exports.transferFunds = async (req, res) => {
     
     const transactionDate = date ? new Date(date) : new Date();
     
-    // Create sender transaction with sender-specific description
-    // const senderTransactionData = {
-    //   userId: sender._id,
-    //   type: 'outflow',
-    //   amount: transferAmount,
-    //   description: senderDescription || `Transfer to ${receiver.fullname || receiverEmail}`,
-    //   createdAt: transactionDate
-    // };
-    
-    // // Create receiver transaction with receiver-specific description
-    // const receiverTransactionData = {
-    //   userId: receiver._id,
-    //   type: 'inflow',
-    //   amount: transferAmount,
-    //   description: receiverDescription || `Transfer from ${sender.fullname || senderEmail}`,
-    //   createdAt: transactionDate
-    // };
-// Calculate total balance across all accounts
-const totalBalance = (user.balances.savings || 0) + 
-                     (user.balances.current || 0) + 
-                     (user.balances.loan || 0);
+    // Create transaction records
+    const senderTransactionData = {
+      userId: sender._id,
+      type: 'outflow',
+      amount: transferAmount,
+      accountType: fromAccount,
+      description: senderDescription || `Transfer to ${receiver.fullname || receiverEmail}`,
+      createdAt: transactionDate,
+      status: 'completed'
+    };
 
-// Send transaction emails
-await sendTransactionEmail({
-  userId: user._id,
-  type: "credit",
-  amount: fundAmount,
-  balance: totalBalance,  // ✅ NOW shows combined balance
-  description: description || `Funded by admin (${admin.email})`
-});
-
-await sendTransactionEmail({
-  userId: admin._id,
-  type: "debit",
-  amount: fundAmount,
-  balance: admin.wallet,
-  description: `Funded ${user.email}'s ${accountType} account`
-});
+    const receiverTransactionData = {
+      userId: receiver._id,
+      type: 'inflow',
+      amount: transferAmount,
+      accountType: toAccount,
+      description: receiverDescription || `Transfer from ${sender.fullname || senderEmail}`,
+      createdAt: transactionDate,
+      status: 'completed'
+    };
     
     await Transaction.create(senderTransactionData);
     await Transaction.create(receiverTransactionData);
+
+    const totalBalance = (receiver.balances.savings || 0) + 
+                     (receiver.balances.current || 0) + 
+                     (receiver.balances.loan || 0);
+    // Send email notifications
+    await sendTransactionEmail({
+      userId: sender._id,
+      type: "debit",
+      amount: transferAmount,
+      balance: sender.balances[fromAccount],
+      description: senderDescription || `Transfer to ${receiver.fullname || receiverEmail}`
+    });
+
+    await sendTransactionEmail({
+      userId: receiver._id,
+      type: "credit",
+      amount: transferAmount,
+      balance: receiver.balances[toAccount],
+      description: receiverDescription || `Transfer from ${sender.fullname || senderEmail}`
+    });
     
     res.json({ message: 'Funds transferred successfully' });
-
-    // Send email notifications
-await sendTransactionEmail({
-  userId: sender._id,
-  type: "outflow",
-  amount: transferAmount,
-  balance: sender.balances[fromAccount],
-  description: senderDescription || `Transfer to ${receiver.fullname || receiverEmail}`
-});
-
-await sendTransactionEmail({
-  userId: receiver._id,
-  type: "inflow",
-  amount: transferAmount,
-  balance: receiver.balances[toAccount],
-  description: receiverDescription || `Transfer from ${sender.fullname || senderEmail}`
-});
-
     
   } catch (error) {
     console.error('Transfer error:', error);

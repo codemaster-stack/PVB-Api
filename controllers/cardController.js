@@ -502,16 +502,24 @@ exports.fundCard = async (req, res) => {
       return res.status(400).json({ message: "PIN is required" });
     }
 
-    const user = req.user;
+    // const user = req.user;
+    const user = await User.findById(req.user.id).select('+transactionPin');
+    if (!user) {
+     return res.status(404).json({ message: "User not found" });
+  }
 
     // ✅ VERIFY TRANSFER PIN
-    if (!user.transferPin) {
-      return res.status(400).json({ message: "Please create a transfer PIN first" });
-    }
+    // if (!user.transferPin) {
+    //   return res.status(400).json({ message: "Please create a transfer PIN first" });
+    // }
 
-    const bcrypt = require('bcryptjs'); // Make sure bcrypt is imported at the top
-    const isPinValid = await bcrypt.compare(pin, user.transferPin);
-    
+    // const bcrypt = require('bcryptjs'); // Make sure bcrypt is imported at the top
+    // const isPinValid = await bcrypt.compare(pin, user.transferPin);
+    if (!user.transactionPin) {
+    return res.status(400).json({ message: "Please create a transaction PIN first" });
+    }
+    const isPinValid = await bcrypt.compare(pin, user.transactionPin);
+
     if (!isPinValid) {
       return res.status(401).json({ message: "Invalid PIN. Transaction denied." });
     }

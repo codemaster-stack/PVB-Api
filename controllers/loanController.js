@@ -36,10 +36,10 @@ exports.applyForLoan = async (req, res) => {
 
 exports.reviewLoanApplication = async (req, res) => {
   try {
-    const { loanId } = req.params;
+   const { loanId } = req.params;
     const { action, adminMessage } = req.body; // "approve" | "reject"
 
-    const loan = await LoanApplication.findById(id);
+    const loan = await LoanApplication.findById(loanId);
     if (!loan) return res.status(404).json({ message: "Loan application not found" });
 
     const bankName = "Valley Bank";

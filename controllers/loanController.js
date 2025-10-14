@@ -1,6 +1,14 @@
 const LoanApplication = require("../models/loanApplication");
-const nodemailer = require("nodemailer");
+const User = require("../models/User");
+const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
+const sendEmail = require("../utils/sendEmail");
+const path = require("path");
 
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
+};
 // @desc  Submit a new loan application
 // @route POST /api/loans/apply
 // @access Private (user must be logged in)

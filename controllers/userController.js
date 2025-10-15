@@ -149,13 +149,21 @@ exports.login = async (req, res) => {
       });
     }
 
+    // ✅ NEW - Check if user is deleted (in recycle bin)
+    if (user.isDeleted === true) {
+      return res.status(403).json({ 
+        message: "Your account has been removed. Please contact support for assistance.",
+        type: "ACCOUNT_DELETED"
+      });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
     // ✅ Notify admin about the login
     try {
       await sendEmail({
-        email: process.env.ADMIN_EMAIL, // Set this in your .env file
+        email: process.env.ADMIN_EMAIL,
         subject: `🔔 User Login Notification - ${user.fullname}`,
         message: `User ${user.fullname} (${user.email}) has just logged in to their account.`,
         html: `
@@ -200,7 +208,6 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
 
 exports.forgotPassword = async (req, res, next) => {
   try {

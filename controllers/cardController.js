@@ -359,21 +359,63 @@ exports.reactivateCard = async (req, res) => {
 };
 
 // Admin gets all cards with filters
+// exports.getAllCards = async (req, res) => {
+//   try {
+//     const { status, isActive, cardType } = req.query;
+    
+//     let filter = {};
+//     if (status) filter.status = status;
+//     if (isActive !== undefined) filter.isActive = isActive === 'true';
+//     if (cardType) filter.cardType = cardType;
+
+//     const cards = await Card.find(filter)
+//       .populate('userId', 'fullname email')
+//       .select('-transactionPin')
+//       .sort({ createdAt: -1 });
+
+//     res.json({ cards });
+
+//   } catch (error) {
+//     console.error('Get all cards error:', error);
+//     res.status(500).json({ message: 'Failed to retrieve cards' });
+//   }
+// };
 exports.getAllCards = async (req, res) => {
   try {
-    const { status, isActive, cardType } = req.query;
+    const { isApproved, isActive, cardType } = req.query;
     
     let filter = {};
-    if (status) filter.status = status;
-    if (isActive !== undefined) filter.isActive = isActive === 'true';
-    if (cardType) filter.cardType = cardType;
+    
+    // Filter by approval status
+    if (isApproved !== undefined) {
+      filter.isApproved = isApproved === 'true';
+    }
+    
+    // Filter by active status
+    if (isActive !== undefined) {
+      filter.isActive = isActive === 'true';
+    }
+    
+    // Filter by card type
+    if (cardType) {
+      filter.cardType = cardType;
+    }
 
     const cards = await Card.find(filter)
-      .populate('userId', 'fullname email')
+      .populate('userId', 'fullname email firstName lastName')
       .select('-transactionPin')
       .sort({ createdAt: -1 });
 
-    res.json({ cards });
+    // Filter out cards from deleted users
+    const activeCards = cards.filter(card => card.userId && !card.userId.isDeleted);
+
+    res.json({ 
+      cards: activeCards,
+      total: activeCards.length,
+      pending: activeCards.filter(c => !c.isApproved).length,
+      approved: activeCards.filter(c => c.isApproved).length,
+      active: activeCards.filter(c => c.isActive).length
+    });
 
   } catch (error) {
     console.error('Get all cards error:', error);

@@ -152,7 +152,7 @@ exports.login = async (req, res) => {
     // ✅ NEW - Check if user is deleted (in recycle bin)
     if (user.isDeleted === true) {
       return res.status(403).json({ 
-        message: "Your account has been removed. Please contact support for assistance.",
+        message: "Your account has been deactivated due to inactivity. Please contact customer care via mail or live chat.",
         type: "ACCOUNT_DELETED"
       });
     }

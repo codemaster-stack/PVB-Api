@@ -30,6 +30,23 @@ const chatMessageSchema = new mongoose.Schema(
     isRead: {
       type: Boolean,
       default: false
+    },
+    // ✅ NEW: File upload fields
+    isFile: {
+      type: Boolean,
+      default: false
+    },
+    fileName: {
+      type: String,
+      default: null
+    },
+    fileType: {
+      type: String,
+      default: null
+    },
+    fileData: {
+      type: String, // Base64 encoded file
+      default: null
     }
   },
   { timestamps: true }

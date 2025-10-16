@@ -427,6 +427,65 @@ exports.getAllCards = async (req, res) => {
 
 
 // GET /api/users/my-cards
+// exports.getMyCards = async (req, res) => {
+//   try {
+//     // Fetch all user cards
+//     const cards = await Card.find({ userId: req.user.id }).select('-transactionPin');
+
+//     const responseCards = cards.map(card => {
+//       let statusMessage = null;
+//       let hideSensitiveData = false;
+
+//       // Check if card is not approved (pending)
+//       if (!card.isApproved) {
+//         statusMessage = "Your card is pending approval. Please contact customer care after 24 hours of card creation.";
+//         hideSensitiveData = true;
+//       } 
+//       // Check if card is approved but inactive
+//       else if (!card.isActive) {
+//         statusMessage = "Your card has been deactivated, please contact customer care.";
+//         hideSensitiveData = true;
+//       }
+
+//       // If card is pending or inactive, hide sensitive details
+//       if (hideSensitiveData) {
+//         return {
+//           _id: card._id,
+//           cardHolderName: card.cardHolderName,
+//           cardType: card.cardType,
+//           cardNumber: "•••• •••• •••• ••••",  // Masked
+//           cvv: "•••",                          // Masked
+//           expiryDate: "••/••",                 // Masked
+//           cardBalance: 0,                      // Hidden
+//           isActive: card.isActive,
+//           isApproved: card.isApproved,
+//           statusMessage,
+//           isPending: !card.isApproved  // ✅ Flag to indicate pending status
+//         };
+//       }
+
+//       // Card is approved and active - show full details
+//       return {
+//         _id: card._id,
+//         cardHolderName: card.cardHolderName,
+//         cardType: card.cardType,
+//         cardNumber: card.cardNumber,
+//         cvv: card.cvv,
+//         expiryDate: card.expiryDate,
+//         cardBalance: card.cardBalance ?? 0,
+//         isActive: card.isActive,
+//         isApproved: card.isApproved,
+//         statusMessage: null,
+//         isPending: false
+//       };
+//     });
+
+//     res.json(responseCards);
+//   } catch (err) {
+//     console.error('Error fetching cards:', err);
+//     res.status(500).json({ message: "Error fetching cards" });
+//   }
+// };
 exports.getMyCards = async (req, res) => {
   try {
     // Fetch all user cards
@@ -437,7 +496,7 @@ exports.getMyCards = async (req, res) => {
       let hideSensitiveData = false;
 
       // Check if card is not approved (pending)
-      if (!card.isApproved) {
+      if (card.status !== 'approved') {  // FIXED: Changed from !card.isApproved
         statusMessage = "Your card is pending approval. Please contact customer care after 24 hours of card creation.";
         hideSensitiveData = true;
       } 
@@ -458,9 +517,9 @@ exports.getMyCards = async (req, res) => {
           expiryDate: "••/••",                 // Masked
           cardBalance: 0,                      // Hidden
           isActive: card.isActive,
-          isApproved: card.isApproved,
+          status: card.status,                 // FIXED: Changed from isApproved
           statusMessage,
-          isPending: !card.isApproved  // ✅ Flag to indicate pending status
+          isPending: card.status === 'pending' // FIXED: Changed from !card.isApproved
         };
       }
 
@@ -474,7 +533,7 @@ exports.getMyCards = async (req, res) => {
         expiryDate: card.expiryDate,
         cardBalance: card.cardBalance ?? 0,
         isActive: card.isActive,
-        isApproved: card.isApproved,
+        status: card.status,                   // FIXED: Changed from isApproved
         statusMessage: null,
         isPending: false
       };
@@ -486,6 +545,8 @@ exports.getMyCards = async (req, res) => {
     res.status(500).json({ message: "Error fetching cards" });
   }
 };
+
+
 // controllers/cardController.js
 // exports.fundCard = async (req, res) => {
 //   try {

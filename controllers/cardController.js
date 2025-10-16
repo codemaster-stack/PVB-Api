@@ -266,6 +266,7 @@ exports.approveCard = async (req, res) => {
     }
 
     card.status = 'approved';
+    card.isPending = false;
     card.isActive = true;
     card.approvedBy = req.admin._id; // Changed from req.user._id to req.admin._id
     card.approvedAt = new Date();
@@ -295,6 +296,7 @@ exports.rejectCard = async (req, res) => {
     }
 
     card.status = 'rejected';
+    card.isPending = false;
     card.rejectedAt = new Date();
     card.rejectionReason = reason || 'No reason provided';
 

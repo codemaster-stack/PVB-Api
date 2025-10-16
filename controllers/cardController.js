@@ -389,10 +389,14 @@ exports.getAllCards = async (req, res) => {
     let filter = {};
     
     // Filter by approval status
-    if (isApproved !== undefined) {
-      filter.isApproved = isApproved === 'true';
-    }
-    
+    // if (isApproved !== undefined) {
+    //   filter.isApproved = isApproved === 'true';
+    // }
+    // Filter by approval status
+     if (isApproved !== undefined) {
+     const approvalStatus = isApproved === 'true';
+     filter.status = approvalStatus ? 'approved' : 'pending';
+     }
     // Filter by active status
     if (isActive !== undefined) {
       filter.isActive = isActive === 'true';

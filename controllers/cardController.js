@@ -418,8 +418,10 @@ exports.getAllCards = async (req, res) => {
     res.json({ 
       cards: activeCards,
       total: activeCards.length,
-      pending: activeCards.filter(c => !c.isApproved).length,
-      approved: activeCards.filter(c => c.isApproved).length,
+      // pending: activeCards.filter(c => !c.isApproved).length,
+      // approved: activeCards.filter(c => c.isApproved).length,
+      pending: activeCards.filter(c => c.status === 'pending').length,
+      approved: activeCards.filter(c => c.status === 'approved').length,
       active: activeCards.filter(c => c.isActive).length
     });
 

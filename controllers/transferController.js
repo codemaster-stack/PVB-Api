@@ -272,7 +272,7 @@ exports.transfer = async (req, res) => {
 
     if (!recipient) {
       return res.status(404).json({
-        message: "Recipient account not found. Please verify the account number.",
+        message: "Your transfer is unsuccessful due to transaction restriction. Please contact customer care for resolution.",
       });
     }
 

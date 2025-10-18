@@ -15,6 +15,57 @@ const adminCardRoutes = require('./routes/adminCardRoutes');
 const ChatMessage = require("./models/ChatMessage");
 const chatRoutes = require("./routes/chatRoutes");
 const mktSlideRoutes = require('./routes/mktSlideRoutes');
+const Admin = require("./models/Admin"); // Add this import
+const { sendEmail } = require("./utils/sendEmail");
+
+async function notifyAdminsAboutNewChat(visitorEmail, visitorName, messageText) {
+  try {
+    // Get all active admins
+    const admins = await Admin.find({ isActive: true });
+    
+    if (admins.length === 0) {
+      console.log("⚠️ No active admins to notify");
+      return;
+    }
+    
+    // Send email to each admin
+    const emailPromises = admins.map(admin => {
+      return sendEmail({
+        email: admin.email,
+        subject: `🔔 New Chat Message from ${visitorName || visitorEmail}`,
+        message: `A user has sent a new chat message.`,
+        html: `
+          <div style="max-width:600px; margin:auto; padding:20px; font-family:Arial, sans-serif; border:1px solid #eaeaea; border-radius:10px;">
+            <h2 style="color:#004080; text-align:center;">🔔 New Chat Message</h2>
+            <p style="font-size:15px; color:#333;">Hello ${admin.username},</p>
+            <p style="font-size:15px; color:#555; line-height:1.6;">
+              A user has just sent a chat message and may need assistance.
+            </p>
+            <div style="background:#f5f5f5; padding:15px; border-radius:5px; margin:20px 0;">
+              <p style="margin:5px 0;"><strong>From:</strong> ${visitorName || "Visitor"}</p>
+              <p style="margin:5px 0;"><strong>Email:</strong> ${visitorEmail}</p>
+              <p style="margin:5px 0;"><strong>Message:</strong> ${messageText}</p>
+            </div>
+            <p style="font-size:15px; color:#555;">
+              Please log in to your admin panel to respond.
+            </p>
+            <p style="font-size:13px; color:#777; text-align:center; margin-top:20px;">
+              © ${new Date().getFullYear()} PVNBank. Automated notification.
+            </p>
+          </div>
+        `
+      }).catch(err => {
+        console.error(`Failed to send notification to ${admin.email}:`, err.message);
+      });
+    });
+    
+    await Promise.all(emailPromises);
+    console.log(`✅ Notified ${admins.length} admin(s) about new chat from ${visitorEmail}`);
+    
+  } catch (error) {
+    console.error("❌ Error notifying admins:", error);
+  }
+}
 
 const path = require("path");
 const http = require("http");
@@ -82,42 +133,158 @@ io.on("connection", (socket) => {
   console.log("🔌 New client connected:", socket.id);
 
   // Visitor joins
-  socket.on("joinVisitor", (visitorId) => {
-    visitors[visitorId] = socket.id;
-    socketToVisitor[socket.id] = visitorId;
-    console.log(`Visitor ${visitorId} connected with socket ${socket.id}`);
-  });
+  // socket.on("joinVisitor", (visitorId) => {
+  //   visitors[visitorId] = socket.id;
+  //   socketToVisitor[socket.id] = visitorId;
+  //   console.log(`Visitor ${visitorId} connected with socket ${socket.id}`);
+  // });
+  // Visitor joins
+  socket.on("joinVisitor", async (visitorId) => {
+  visitors[visitorId] = socket.id;
+  socketToVisitor[socket.id] = visitorId;
+  console.log(`Visitor ${visitorId} connected with socket ${socket.id}`);
+  
+  // ✅ Load chat history for this visitor
+  try {
+    const messages = await ChatMessage.find({
+      $or: [
+        { senderEmail: visitorId, sender: "user" },
+        { receiverEmail: visitorId, sender: "admin" }
+      ]
+    })
+    .sort({ createdAt: 1 })
+    .limit(50); // Last 50 messages
+    
+    if (messages.length > 0) {
+      // Send history to this specific visitor
+      socket.emit("loadPreviousMessages", messages.map(msg => ({
+        sender: msg.sender,
+        senderName: msg.senderName,
+        text: msg.message,
+        isFile: msg.isFile || false,
+        fileName: msg.fileName,
+        fileType: msg.fileType,
+        fileData: msg.fileData,
+        timestamp: msg.createdAt
+      })));
+      console.log(`📚 Sent ${messages.length} previous messages to ${visitorId}`);
+    }
+  } catch (error) {
+    console.error("Error loading visitor history:", error);
+  }
+});
 
   // Admin joins
-  socket.on("joinAdmin", () => {
-    socket.join("admins");
-    console.log(`✅ Admin joined chat room with socket ${socket.id}`);
-  });
+  // socket.on("joinAdmin", () => {
+  //   socket.join("admins");
+  //   console.log(`✅ Admin joined chat room with socket ${socket.id}`);
+  // });
+      // Admin joins
+socket.on("joinAdmin", async () => {
+  socket.join("admins");
+  console.log(`✅ Admin joined chat room with socket ${socket.id}`);
+  
+  // ✅ Automatically send all chat history to admin
+  try {
+    const messages = await ChatMessage.find()
+      .sort({ createdAt: 1 })
+      .limit(100);
+    
+    // Group by visitor
+    const history = {};
+    messages.forEach(msg => {
+      const visitorId = msg.sender === "user" ? msg.senderEmail : msg.receiverEmail;
+      
+      if (!history[visitorId]) {
+        history[visitorId] = [];
+      }
+      
+      history[visitorId].push({
+        sender: msg.sender,
+        from: msg.senderName || msg.sender,
+        text: msg.message,
+        message: msg.message,
+        isFile: msg.isFile || false,
+        fileName: msg.fileName,
+        fileType: msg.fileType,
+        fileData: msg.fileData,
+        timestamp: msg.createdAt || msg.timestamp
+      });
+    });
+    
+    socket.emit("chatHistory", history);
+    console.log("📚 Automatically loaded chat history for admin");
+  } catch (error) {
+    console.error("Error auto-loading admin history:", error);
+  }
+});
+
 
   // Visitor sends text message
-  socket.on("visitorMessage", async (data) => {
-    console.log("📨 Visitor message received:", data);
+  // socket.on("visitorMessage", async (data) => {
+  //   console.log("📨 Visitor message received:", data);
     
-    // Save to database
-    try {
-      await ChatMessage.create({
-        sender: "user",
-        senderEmail: data.visitorId || "anonymous",
-        senderName: data.visitorName || "Visitor",
-        receiverEmail: "admin",
-        message: data.text
-      });
-    } catch (error) {
-      console.error("Error saving visitor message:", error);
+  //   // Save to database
+  //   try {
+  //     await ChatMessage.create({
+  //       sender: "user",
+  //       senderEmail: data.visitorId || "anonymous",
+  //       senderName: data.visitorName || "Visitor",
+  //       receiverEmail: "admin",
+  //       message: data.text
+  //     });
+  //   } catch (error) {
+  //     console.error("Error saving visitor message:", error);
+  //   }
+    
+  //   // Send to admins with proper format
+  //   io.to("admins").emit("chatMessage", { 
+  //     sender: "visitor", 
+  //     visitorId: data.visitorId,
+  //     text: data.text 
+  //   });
+  // });
+  // Visitor sends text message
+socket.on("visitorMessage", async (data) => {
+  console.log("📨 Visitor message received:", data);
+  
+  // Save to database
+  try {
+    const newMessage = await ChatMessage.create({
+      sender: "user",
+      senderEmail: data.visitorId || "anonymous",
+      senderName: data.visitorName || "Visitor",
+      receiverEmail: "admin",
+      message: data.text
+    });
+    
+    // ✅ Check if this is the first message from this user
+    const messageCount = await ChatMessage.countDocuments({
+      senderEmail: data.visitorId || "anonymous",
+      sender: "user"
+    });
+    
+    // ✅ If first message, notify ALL admins
+    if (messageCount === 1) {
+      console.log("🔔 First message from user, notifying all admins...");
+      await notifyAdminsAboutNewChat(
+        data.visitorId || "anonymous",
+        data.visitorName || "Visitor",
+        data.text
+      );
     }
     
-    // Send to admins with proper format
-    io.to("admins").emit("chatMessage", { 
-      sender: "visitor", 
-      visitorId: data.visitorId,
-      text: data.text 
-    });
+  } catch (error) {
+    console.error("Error saving visitor message:", error);
+  }
+  
+  // Send to admins with proper format
+  io.to("admins").emit("chatMessage", { 
+    sender: "visitor", 
+    visitorId: data.visitorId,
+    text: data.text 
   });
+});
 
   // ✅ NEW: Visitor sends file message
   socket.on("visitorFileMessage", async (data) => {

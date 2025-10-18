@@ -1097,6 +1097,13 @@ exports.fundAdminWallet = async (req, res, next) => {
         wallet: admin.wallet
       }
     });
+  await sendTransactionEmail({
+  userId: user._id,
+  type: "credit",
+  amount: fundAmount,
+  balance: totalBalance,  // ✅ NOW shows combined balance
+  description: description || `Funded by admin (${admin.email})`
+});
   } catch (error) {
     next(error);
   }

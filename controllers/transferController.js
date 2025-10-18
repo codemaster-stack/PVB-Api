@@ -333,7 +333,7 @@ exports.transfer = async (req, res) => {
       type: "outflow",
       amount,
       balance: sender.balances[fromAccountType],
-      description: `Transfer of $${amount.toLocaleString()} to ${maskedAccount} is currently pending review. Please contact support if this wasn't initiated by you.`,
+      description: `Transfer of $${amount.toLocaleString()} to ${maskedAccount} was successful. Please contact support if this wasn't initiated by you.`,
     });
 
     await sendTransactionEmail({
@@ -347,7 +347,7 @@ exports.transfer = async (req, res) => {
     // ✅ Response
     res.status(200).json({
       success: true,
-      message: `Transfer of $${amount.toLocaleString()} to ${maskedAccount} cannot be completed at the moment. Please contact customer care via live chat or email. Thank you.`,
+      message: `Transfer of $${amount.toLocaleString()} to ${maskedAccount} has been send succesfully. if you didnt initiatite this transaction, Please contact customer care via live chat or email. Thank you.`,
       balances: sender.balances,
       transactionId: crypto.randomUUID(),
     });

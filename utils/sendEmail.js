@@ -9,17 +9,26 @@ const resend = require("../config/email");
  * @param {string} [options.message] - Fallback plain-text message
  * @param {string} [options.html] - HTML body
  */
-const sendEmail = async ({ email, subject, message, html }) => {
+const sendEmail = async ({ email, subject, message, html, attachment }) => {
   try {
     const recipients = Array.isArray(email) ? email : [email]; // support multiple recipients
 
-    await resend.emails.send({
-      from: "Pauls Valley Bank <support@pvbonline.online>", // verified sender
-      to: recipients,
-      subject,
-      html: html || `<p>${message}</p>`,
-      text: message || "No text content",
-    });
+ const emailData = {
+  from: "Pauls Valley Bank <support@pvbonline.online>",
+  to: recipients,
+  subject,
+  html: html || `<p>${message}</p>`,
+  text: message || "No text content",
+};
+
+if (attachment) {
+  emailData.attachments = [{
+    filename: attachment.filename,
+    content: attachment.content,
+  }];
+}
+
+await resend.emails.send(emailData);
 
     console.log(`✅ Email sent to: ${recipients.join(", ")}`);
   } catch (error) {

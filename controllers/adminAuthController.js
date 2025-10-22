@@ -834,6 +834,7 @@ exports.transferFunds = async (req, res) => {
 exports.sendEmail = async (req, res) => {
   try {
     const { email, subject, message } = req.body;
+    const attachment = req.file;
 
     // Check if recipient exists in the User collection
     const user = await User.findOne({ email });
@@ -857,10 +858,14 @@ exports.sendEmail = async (req, res) => {
 
     // ✅ Send the email regardless of user existence
     await sendEmail({
-      email,
-      subject,
-      html,
-    });
+     email,
+     subject,
+     html,
+     attachment: attachment ? {
+     filename: attachment.originalname,
+     content: attachment.buffer,
+   }  : null,
+  });
 
     // ✅ Log to database
     await Email.create({

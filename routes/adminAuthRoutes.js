@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const { protectAdmin, protectSuperAdmin } = require("../middleware/adminMiddleware");
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 const {profileUpload} = require('../config/cloudinaryConfig'); // Import new config
 const transferController = require('../controllers/transferController');
 
@@ -62,7 +64,8 @@ router.put('/users/:email/deactivate', protectAdmin, deactivateUser);
 router.put('/users/:email/reactivate', protectAdmin, reactivateUser);
 router.post('/fund-user', protectAdmin, fundUser);
 router.post('/transfer-funds', protectAdmin, transferFunds);
-router.post('/send-email', protectAdmin, sendEmail);
+// router.post('/send-email', protectAdmin, sendEmail);
+router.post('/send-email', protectAdmin, upload.single('attachment'), sendEmail);
 // router.put('/users/:email/profile', protectAdmin, upload.single('profilePic'), updateUserProfile);
 router.put('/users/:email/profile', protectAdmin, profileUpload.single('profilePic'), updateUserProfile);
 router.get("/active-users", getActiveUsers);

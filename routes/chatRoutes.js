@@ -1,12 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const ChatMessage = require("../models/ChatMessage");
-const {protectSuperAdmin } = require("../middleware/adminMiddleware");
+const {protectAdmin, protectSuperAdmin } = require("../middleware/adminMiddleware");
 const { protect } = require("../middleware/auth");
 
 // @desc    Get all chat history (superadmin only)
 // @route   GET /api/chat/history
-router.get("/history", protectSuperAdmin, async (req, res) => {
+router.get("/history", protectAdmin, async (req, res) => {
   try {
     const messages = await ChatMessage.find()
       .sort({ createdAt: -1 })
@@ -20,7 +20,7 @@ router.get("/history", protectSuperAdmin, async (req, res) => {
 
 // @desc    Get chat history by visitor/user email
 // @route   GET /api/chat/history/:email
-router.get("/history/:email", protectSuperAdmin, async (req, res) => {
+router.get("/history/:email", protectAdmin, async (req, res) => {
   try {
     const messages = await ChatMessage.find({
       $or: [
@@ -94,4 +94,38 @@ router.get("/unread-count", protect, async (req, res) => {
     res.status(500).json({ message: "Error fetching unread count" });
   }
 });
+
+
+
+// @desc    End chat session and delete history
+// @route   DELETE /api/chat/end/:visitorId
+// @access  Admin only
+router.delete("/end/:visitorId", protectAdmin, async (req, res) => {
+  try {
+    const visitorId = req.params.visitorId;
+    
+    // Delete all messages for this conversation
+    const result = await ChatMessage.deleteMany({
+      $or: [
+        { senderEmail: visitorId, receiverEmail: "admin" },
+        { senderEmail: "admin", receiverEmail: visitorId },
+        { senderEmail: visitorId },
+        { receiverEmail: visitorId }
+      ]
+    });
+    
+    console.log(`✅ Deleted ${result.deletedCount} messages for ${visitorId}`);
+    
+    res.json({ 
+      message: "Chat session ended successfully",
+      deletedCount: result.deletedCount,
+      visitorId: visitorId
+    });
+    
+  } catch (error) {
+    console.error("Error ending chat:", error);
+    res.status(500).json({ message: "Failed to end chat session" });
+  }
+});
+
 module.exports = router;

@@ -273,6 +273,16 @@ socket.on("visitorMessage", async (data) => {
         data.text
       );
     }
+    const unreadCount = await ChatMessage.countDocuments({
+      senderEmail: data.visitorId,
+      receiverEmail: "admin",
+      isRead: false
+    });
+    
+    io.to("admins").emit("newUnreadMessage", {
+      visitorId: data.visitorId,
+      messageCount: unreadCount
+    });
     
   } catch (error) {
     console.error("Error saving visitor message:", error);
@@ -453,6 +463,51 @@ socket.on("visitorMessage", async (data) => {
       console.log("📚 Sent chat history to admin");
     } catch (error) {
       console.error("Error loading chat history:", error);
+    }
+  });
+
+       socket.on("markAsRead", async (data) => {
+    try {
+      await ChatMessage.updateMany(
+        { 
+          senderEmail: data.visitorId,
+          receiverEmail: "admin",
+          isRead: false 
+        },
+        { isRead: true }
+      );
+      console.log(`✅ Marked messages as read for ${data.visitorId}`);
+    } catch (error) {
+      console.error("Error marking as read:", error);
+    }
+  });
+  
+  // Admin ends chat
+  socket.on("endChat", async (data) => {
+    console.log("🔚 Admin ending chat with:", data.visitorId);
+    
+    try {
+      const result = await ChatMessage.deleteMany({
+        $or: [
+          { senderEmail: data.visitorId, receiverEmail: "admin" },
+          { senderEmail: "admin", receiverEmail: data.visitorId }
+        ]
+      });
+      
+      console.log(`✅ Deleted ${result.deletedCount} messages for ${data.visitorId}`);
+      
+      const visitorSocket = visitors[data.visitorId];
+      if (visitorSocket) {
+        io.to(visitorSocket).emit("chatEnded", {
+          message: "This chat session has been ended by support."
+        });
+      }
+      
+      socket.emit("chatEndedConfirm", { visitorId: data.visitorId });
+      
+    } catch (error) {
+      console.error("❌ Error ending chat:", error);
+      socket.emit("chatEndError", { message: "Failed to end chat" });
     }
   });
 

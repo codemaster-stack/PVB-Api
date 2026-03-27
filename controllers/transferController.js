@@ -199,7 +199,7 @@ loadDatabase();
 //   }
 // };
 
-console.log("🔥🔥🔥 NEW TRANSFER VERSION RUNNING 🔥🔥🔥");
+
 
 
 exports.transfer = async (req, res) => {
